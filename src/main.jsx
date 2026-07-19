@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Camera, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
 import hero from './assets/salon-hero.png'
 import portfolio from './assets/hair-portfolio.png'
 import './styles.css'
+import Admin from './Admin.jsx'
 
 const services = [
   { icon: Scissors, name: '質感剪髮', detail: '洗髮・造型・居家整理建議', price: 'NT$ 1,200+' },
@@ -118,8 +119,18 @@ function App() {
       </form>
     </section>
 
-    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="#booking">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
+    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="#booking">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
   </main>
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+function Root() {
+  const [hash, setHash] = useState(window.location.hash)
+  useEffect(() => {
+    const updateHash = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', updateHash)
+    return () => window.removeEventListener('hashchange', updateHash)
+  }, [])
+  return hash === '#admin' ? <Admin /> : <App />
+}
+
+createRoot(document.getElementById('root')).render(<Root />)
