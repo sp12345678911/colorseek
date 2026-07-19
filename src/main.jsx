@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Camera, Menu, Scissors, Sparkles, X } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Camera, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
 import hero from './assets/salon-hero.png'
 import portfolio from './assets/hair-portfolio.png'
 import './styles.css'
@@ -17,20 +17,29 @@ const works = [
   ['03', '琥珀層次', 'AMBER LAYERS'], ['04', '午夜光澤', 'MIDNIGHT GLOSS'],
 ]
 
+const products = [
+  { id: 1, name: '柔光修護髮油', en: 'LUMINOUS HAIR OIL', note: '乾燥・毛躁髮適用', price: 1280, tone: 'amber', form: 'dropper' },
+  { id: 2, name: '輕盈造型乳', en: 'AIRY STYLING CREAM', note: '自然線條與柔霧定型', price: 980, tone: 'ivory', form: 'tube' },
+  { id: 3, name: '深層保濕髮膜', en: 'DEEP MOISTURE MASK', note: '染燙後密集修護', price: 1480, tone: 'clay', form: 'jar' },
+]
+
 function App() {
   const [menu, setMenu] = useState(false)
   const [sent, setSent] = useState(false)
+  const [cart, setCart] = useState({})
   const close = () => setMenu(false)
   const submit = (e) => { e.preventDefault(); setSent(true) }
+  const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0)
+  const changeCart = (id, amount) => setCart(current => ({ ...current, [id]: Math.max(0, (current[id] || 0) + amount) }))
 
   return <main>
     <nav className="nav">
       <a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a>
       <div className={menu ? 'links open' : 'links'}>
         <a onClick={close} href="#about">ABOUT ME</a><a onClick={close} href="#pricing">PRICE</a>
-        <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#booking">BOOKING</a>
+        <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#store">STORE</a><a onClick={close} href="#booking">BOOKING</a>
       </div>
-      <a className="nav-cta" href="#booking">立即預約 <ArrowRight /></a>
+      <a className="nav-cta bag-link" href="#store"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>
       <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="切換選單">{menu ? <X /> : <Menu />}</button>
     </nav>
 
@@ -73,10 +82,28 @@ function App() {
       <a className="text-link" href="https://instagram.com" target="_blank" rel="noreferrer"><Camera /> 在 Instagram 看更多作品 <ArrowRight /></a>
     </section>
 
+    <section className="store section" id="store">
+      <div className="section-label"><span>04</span> MUSE STORE</div>
+      <div className="section-heading store-heading"><div><p className="eyebrow">CURATED ESSENTIALS</p><h2>把沙龍質感，<br />帶回你的日常。</h2></div><p>由我親自挑選的居家護理與造型品，<br />讓好髮型延續到每一天。</p></div>
+      <div className="products">{products.map(product => {
+        const quantity = cart[product.id] || 0
+        return <article className="product-card" key={product.id}>
+          <div className={`product-visual ${product.tone}`}><span className={`product-bottle ${product.form}`}><i>MUSE</i></span><small>0{product.id}</small></div>
+          <div className="product-info"><p>{product.en}</p><h3>{product.name}</h3><span>{product.note}</span>
+            <div className="product-buy"><strong>NT$ {product.price.toLocaleString()}</strong>{quantity === 0
+              ? <button onClick={() => changeCart(product.id, 1)}>加入購物袋 <Plus /></button>
+              : <div className="quantity"><button aria-label="減少數量" onClick={() => changeCart(product.id, -1)}><Minus /></button><b>{quantity}</b><button aria-label="增加數量" onClick={() => changeCart(product.id, 1)}><Plus /></button></div>}
+            </div>
+          </div>
+        </article>
+      })}</div>
+      <div className="store-note"><ShoppingBag /><span>購物袋內有 <b>{cartCount}</b> 件商品</span><a href="#booking">聯絡我們完成訂購 <ArrowRight /></a></div>
+    </section>
+
     <section className="booking section" id="booking">
-      <div className="booking-intro"><div className="section-label light"><span>04</span> BOOKING</div><p className="eyebrow">MAKE AN APPOINTMENT</p><h2>準備好，遇見<br />全新的自己了嗎？</h2>
+      <div className="booking-intro"><div className="section-label light"><span>05</span> BOOKING</div><p className="eyebrow">MAKE AN APPOINTMENT</p><h2>準備好，遇見<br />全新的自己了嗎？</h2>
         <p>選擇你方便的時間與想做的服務，我會在 24 小時內與你確認預約細節。</p>
-        <div className="contact-info"><p>台北市中山區・捷運步行 5 分鐘</p><p>Tue — Sun · 11:00 — 20:00</p></div>
+        <div className="contact-info"><p>新北市金山區中正路37號1樓・金山農會步行 3 分鐘</p><p>Tue — Sun · 08:00 — 21:00</p></div>
       </div>
       <form className="booking-form" onSubmit={submit}>
         {sent ? <div className="success"><Check /><h3>收到你的預約了！</h3><p>我會在 24 小時內與你聯絡確認。</p><button type="button" onClick={()=>setSent(false)}>再填一次</button></div> : <>
