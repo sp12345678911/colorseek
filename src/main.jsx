@@ -2,20 +2,29 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Camera, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
 import hero from './assets/salon-hero.png'
-import portfolio from './assets/hair-portfolio.png'
+import work01 from './assets/work-01.jpg'
+import work02 from './assets/work-02.jpg'
+import work03 from './assets/work-03.jpg'
+import work04 from './assets/work-04.jpg'
 import './styles.css'
 import Admin from './Admin.jsx'
 
 const services = [
-  { icon: Scissors, name: '質感剪髮', detail: '洗髮・造型・居家整理建議', price: 'NT$ 1,200+' },
-  { icon: Sparkles, name: '專屬染髮', detail: '質感染・挑染・漂髮設計', price: 'NT$ 3,500+' },
-  { icon: 'wave', name: '柔感燙髮', detail: '韓系燙・慵懶捲・縮毛矯正', price: 'NT$ 4,200+' },
-  { icon: 'leaf', name: '深層護理', detail: '結構式護髮・頭皮舒緩', price: 'NT$ 1,800+' },
+  { icon: Sparkles, name: '洗髮（含潤髮）', detail: '基礎清潔・潤髮護理', price: 'NT$ 200' },
+  { icon: Scissors, name: '剪髮', detail: '專業剪裁・造型整理', price: 'NT$ 300' },
+  { icon: 'wave', name: '冷燙', detail: '依髮長、髮量現場評估', price: 'NT$ 1,200+' },
+  { icon: 'wave', name: '縮毛矯正／溫塑燙', detail: '依髮長、髮量現場評估', price: 'NT$ 1,700+' },
+  { icon: Sparkles, name: '染髮', detail: '依髮長、髮量現場評估', price: 'NT$ 1,500+' },
+  { icon: 'leaf', name: '一般護髮', detail: '日常髮絲修護', price: 'NT$ 1,000' },
+  { icon: 'leaf', name: '結構式二段護髮', detail: '兩階段深層結構修護', price: 'NT$ 1,500' },
+  { icon: 'leaf', name: '深層頭皮護理', detail: '頭皮清潔・舒緩養護', price: 'NT$ 1,200' },
 ]
 
 const works = [
-  ['01', '柔霧可可', 'WARM COCOA'], ['02', '霧感短鮑伯', 'ASH BOB'],
-  ['03', '琥珀層次', 'AMBER LAYERS'], ['04', '午夜光澤', 'MIDNIGHT GLOSS'],
+  { number: '01', name: '莓果暖棕', en: 'BERRY WARM BROWN', image: work01 },
+  { number: '02', name: '柔感波浪', en: 'SOFT WAVE', image: work02 },
+  { number: '03', name: '質感茶棕', en: 'GLOSSY TEA BROWN', image: work03 },
+  { number: '04', name: '午夜藍黑', en: 'MIDNIGHT BLUE BLACK', image: work04 },
 ]
 
 const products = [
@@ -76,11 +85,11 @@ function App() {
     <section className="portfolio section" id="portfolio">
       <div className="section-label"><span>03</span> SELECTED WORKS</div>
       <div className="section-heading"><div><p className="eyebrow">PORTFOLIO</p><h2>近期作品</h2></div><p>每一款髮型，都從理解一個人開始。<br />看看我們一起完成的改變。</p></div>
-      <div className="works">{works.map((work, i) => <article className="work-card" key={work[0]}>
-        <div className="work-image" style={{backgroundImage:`url(${portfolio})`, backgroundPosition:`${i * 33.333}% center`}}><span>{work[0]}</span></div>
-        <h3>{work[1]}</h3><p>{work[2]}</p>
+      <div className="works">{works.map(work => <article className="work-card" key={work.number}>
+        <div className="work-image" style={{backgroundImage:`url(${work.image})`}}><span>{work.number}</span></div>
+        <h3>{work.name}</h3><p>{work.en}</p>
       </article>)}</div>
-      <a className="text-link" href="https://instagram.com" target="_blank" rel="noreferrer"><Camera /> 在 Instagram 看更多作品 <ArrowRight /></a>
+      <a className="text-link" href="https://www.instagram.com/melody_melody_3333/" target="_blank" rel="noreferrer"><Camera /> 在 Instagram 看更多作品 <ArrowRight /></a>
     </section>
 
     <section className="store section" id="store">
@@ -108,7 +117,7 @@ function App() {
       </div>
       <form className="booking-form" onSubmit={submit}>
         {sent ? <div className="success"><Check /><h3>收到你的預約了！</h3><p>我會在 24 小時內與你聯絡確認。</p><button type="button" onClick={()=>setSent(false)}>再填一次</button></div> : <>
-          <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select required defaultValue=""><option value="" disabled>請選擇服務項目</option><option>質感剪髮</option><option>專屬染髮</option><option>柔感燙髮</option><option>深層護理</option></select><ChevronDown /></div></div>
+          <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
           <div className="field"><label><CalendarDays /> 日期</label><input type="date" required /></div>
           <div className="field"><label><Clock3 /> 時間</label><input type="time" required /></div>
           <div className="field"><label>你的名字</label><input placeholder="怎麼稱呼你？" required /></div>
