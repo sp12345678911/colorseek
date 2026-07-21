@@ -6,6 +6,9 @@ import work01 from './assets/work-01.jpg'
 import work02 from './assets/work-02.jpg'
 import work03 from './assets/work-03.jpg'
 import work04 from './assets/work-04.jpg'
+import product01 from '../source/good/S__134217755.jpg'
+import product02 from '../source/good/S__134217757.jpg'
+import product03 from '../source/good/S__134217758.jpg'
 import './styles.css'
 import Admin from './Admin.jsx'
 
@@ -28,9 +31,9 @@ const works = [
 ]
 
 const products = [
-  { id: 1, name: '柔光修護髮油', en: 'LUMINOUS HAIR OIL', note: '乾燥・毛躁髮適用', price: 1280, tone: 'amber', form: 'dropper' },
-  { id: 2, name: '輕盈造型乳', en: 'AIRY STYLING CREAM', note: '自然線條與柔霧定型', price: 980, tone: 'ivory', form: 'tube' },
-  { id: 3, name: '深層保濕髮膜', en: 'DEEP MOISTURE MASK', note: '染燙後密集修護', price: 1480, tone: 'clay', form: 'jar' },
+  { id: 1, name: '柔光修護髮油', en: 'LUMINOUS HAIR OIL', note: '乾燥・毛躁髮適用', price: 1280, image: product01, imagePosition: 'center 58%' },
+  { id: 2, name: '輕盈造型乳', en: 'AIRY STYLING CREAM', note: '自然線條與柔霧定型', price: 980, image: product02, imagePosition: 'center' },
+  { id: 3, name: '深層保濕髮膜', en: 'DEEP MOISTURE MASK', note: '染燙後密集修護', price: 1480, image: product03, imagePosition: 'left center' },
 ]
 
 function App() {
@@ -98,7 +101,7 @@ function App() {
       <div className="products">{products.map(product => {
         const quantity = cart[product.id] || 0
         return <article className="product-card" key={product.id}>
-          <div className={`product-visual ${product.tone}`}><span className={`product-bottle ${product.form}`}><i>MUSE</i></span><small>0{product.id}</small></div>
+          <div className="product-visual"><img src={product.image} alt={product.name} style={{objectPosition: product.imagePosition}} /><small>0{product.id}</small></div>
           <div className="product-info"><p>{product.en}</p><h3>{product.name}</h3><span>{product.note}</span>
             <div className="product-buy"><strong>NT$ {product.price.toLocaleString()}</strong>{quantity === 0
               ? <button onClick={() => changeCart(product.id, 1)}>加入購物袋 <Plus /></button>
