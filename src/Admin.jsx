@@ -171,8 +171,8 @@ export default function Admin() {
       <h1>管理後台</h1>
       <p className="login-lead">登入以查看每日營運與訂單資訊。</p>
       <form onSubmit={login}>
-        <label>管理員帳號<input name="account" autoComplete="username" defaultValue="admin" required /></label>
-        <label>密碼<div className="password-field"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" defaultValue="123456" required /><button type="button" aria-label="顯示或隱藏密碼" onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
+        <label>管理員帳號<input name="account" autoComplete="username" defaultValue="" required /></label>
+        <label>密碼<div className="password-field"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" defaultValue="" required /><button type="button" aria-label="顯示或隱藏密碼" onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
         {error && <p className="login-error">{error}</p>}
         <button className="admin-primary" type="submit">登入管理後台 <ChevronRight /></button>
       </form>
