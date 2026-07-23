@@ -11,8 +11,18 @@ import product02 from '../source/good/S__134217757.jpg'
 import product03 from '../source/good/S__134217758.jpg'
 import './styles.css'
 import './schedule.css'
+import './lineLogin.css'
 import Admin from './Admin.jsx'
 import { createSchedule } from './scheduleApi'
+
+const LINE_CHANNEL_ID = import.meta.env.VITE_LINE_CHANNEL_ID || '2010814211'
+const LINE_REDIRECT_URI = import.meta.env.VITE_LINE_REDIRECT_URI || 'https://6efd-220-128-216-143.ngrok-free.app/api/v1/auth/line/callback'
+
+const createOAuthState = () => {
+  const bytes = new Uint8Array(24)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
 
 const services = [
   { icon: Sparkles, name: '洗髮（含潤髮）', detail: '基礎清潔・潤髮護理', price: 'NT$ 200' },
@@ -45,6 +55,18 @@ function App() {
   const [bookingError, setBookingError] = useState('')
   const [cart, setCart] = useState({})
   const close = () => setMenu(false)
+  const handleLineLogin = () => {
+    const state = createOAuthState()
+    window.sessionStorage.setItem('line_oauth_state', state)
+    const query = new URLSearchParams({
+      response_type: 'code',
+      client_id: LINE_CHANNEL_ID,
+      redirect_uri: LINE_REDIRECT_URI,
+      state,
+      scope: 'profile openid',
+    })
+    window.location.assign(`https://access.line.me/oauth2/v2.1/authorize?${query}`)
+  }
   const submit = async event => {
     event.preventDefault()
     const form = event.currentTarget
@@ -79,6 +101,7 @@ function App() {
       <div className={menu ? 'links open' : 'links'}>
         <a onClick={close} href="#about">ABOUT ME</a><a onClick={close} href="#pricing">PRICE</a>
         <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#store">STORE</a><a onClick={close} href="#booking">BOOKING</a>
+        <button type="button" className="line-login" onClick={handleLineLogin}><span>LINE</span> 登入</button>
       </div>
       <a className="nav-cta bag-link" href="#store"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>
       <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="切換選單">{menu ? <X /> : <Menu />}</button>
