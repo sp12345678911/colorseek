@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, Eye, EyeOff, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, Eye, EyeOff, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
 import './admin.css'
 import './schedule.css'
 import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRevenueRecord } from './revenueApi'
@@ -255,14 +255,25 @@ function RevenueChart({ records }) {
   </svg></div>
 }
 
-function BookingsPanel({ bookingDate, setBookingDate }) {
-  const dates = [...new Set(mockBookings.map(booking => booking.date))]
-  const bookings = mockBookings.filter(booking => booking.date === bookingDate).sort((a, b) => a.time.localeCompare(b.time))
+function BookingsPanel({ bookings: allBookings, bookingDate, setBookingDate, loading, error, updatingId, onStatusChange }) {
+  const [dateOffset, setDateOffset] = useState(0)
+  const todayDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+  const dates = [...new Set(allBookings.map(booking => booking.date))]
+  const maxDateOffset = Math.max(0, dates.length - 3)
+  const visibleDates = dates.slice(dateOffset, dateOffset + 3)
+  const bookings = allBookings
+    .filter(booking => booking.date === bookingDate)
+    .sort((a, b) => a.time.localeCompare(b.time))
+
+  useEffect(() => {
+    setDateOffset(current => Math.min(current, maxDateOffset))
+  }, [maxDateOffset])
+
   return <>
     {dates.length > 0 && <div className="booking-summary-carousel"><button type="button" className="booking-slide" aria-label="查看前面的預約日期" disabled={dateOffset === 0} onClick={() => setDateOffset(current => Math.max(0, current - 1))}><ChevronLeft /></button><div className="booking-summary">{visibleDates.map(date => <button className={date === bookingDate ? 'active' : ''} key={date} onClick={() => setBookingDate(date)}><CalendarDays /><span>{new Date(`${date}T00:00:00`).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' })}<small>{allBookings.filter(item => item.date === date).length} 筆預約</small></span></button>)}</div><button type="button" className="booking-slide" aria-label="查看更多預約日期" disabled={dateOffset === maxDateOffset} onClick={() => setDateOffset(current => Math.min(maxDateOffset, current + 1))}><ChevronRight /></button></div>}
-    <section className="admin-card bookings-card"><div className="card-title"><div><p>BOOKING SCHEDULE</p><h2>{showingAll ? '全部預約時程' : `${bookingDate} 預約時程`}</h2></div><div className="booking-filters"><button type="button" className={showingAll ? 'active' : ''} onClick={() => setBookingDate('all')}><CalendarDays /> 全部預約</button><label className="date-filter">選擇日期<input type="date" value={showingAll ? '' : bookingDate} onChange={event => setBookingDate(event.target.value)} /></label></div></div>
+    <section className="admin-card bookings-card"><div className="card-title"><div><p>BOOKING SCHEDULE</p><h2>{bookingDate} 預約時程</h2></div><div className="booking-filters"><button type="button" className={bookingDate === todayDate ? 'active' : ''} onClick={() => setBookingDate(todayDate)}><CalendarDays /> 今日預約</button><label className="date-filter">選擇日期<input type="date" value={bookingDate} onChange={event => setBookingDate(event.target.value)} /></label></div></div>
       {error && <p className="booking-api-error" role="alert">{error}</p>}
-      {loading ? <div className="empty-bookings"><CalendarDays /><h3>載入預約中</h3><p>正在向排程 API 取得資料…</p></div> : bookings.length ? <div className="booking-list">{bookings.map(booking => <article key={booking.id}><div className="booking-time"><Clock3 /><p>{showingAll && <small>{booking.date}</small>}<strong>{booking.time}</strong></p></div><div className="booking-service"><span><Scissors /></span><p><strong>{booking.service}</strong><small>排程 #{booking.id}</small></p></div><div className="booking-customer"><strong>{booking.customer}</strong><small>{booking.phone}</small></div><p className="booking-note">{booking.note || '無備註'}</p><select className={`booking-status ${booking.status}`} aria-label={`更新 ${booking.customer} 的預約狀態`} value={booking.status} disabled={updatingId === booking.id} onChange={event => onStatusChange(booking.id, event.target.value)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></article>)}</div> : <div className="empty-bookings"><CalendarDays /><h3>{showingAll ? '目前沒有預約' : '當天沒有預約'}</h3><p>{showingAll ? '新預約建立後會顯示在這裡。' : '請選擇其他日期查看。'}</p></div>}
+      {loading ? <div className="empty-bookings"><CalendarDays /><h3>載入預約中</h3><p>正在向排程 API 取得資料…</p></div> : bookings.length ? <div className="booking-list">{bookings.map(booking => <article key={booking.id}><div className="booking-time"><Clock3 /><p><strong>{booking.time}</strong></p></div><div className="booking-service"><span><Scissors /></span><p><strong>{booking.service}</strong><small>排程 #{booking.id}</small></p></div><div className="booking-customer"><strong>{booking.customer}</strong><small>{booking.phone}</small></div><p className="booking-note">{booking.note || '無備註'}</p><select className={`booking-status ${booking.status}`} aria-label={`更新 ${booking.customer} 的預約狀態`} value={booking.status} disabled={updatingId === booking.id} onChange={event => onStatusChange(booking.id, event.target.value)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></article>)}</div> : <div className="empty-bookings"><CalendarDays /><h3>當天沒有預約</h3><p>請選擇其他日期查看。</p></div>}
     </section>
   </>
 }

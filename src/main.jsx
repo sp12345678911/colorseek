@@ -101,7 +101,9 @@ function App() {
       <a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a>
       <div className={menu ? 'links open' : 'links'}>
         <a onClick={close} href="#about">ABOUT ME</a><a onClick={close} href="#pricing">PRICE</a>
-        <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#store">STORE</a><a onClick={close} href="#booking">BOOKING</a><a className="admin-login-link" onClick={close} href="#admin">後台登入</a>
+        <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#store">STORE</a><a onClick={close} href="#booking">BOOKING</a>
+        <button type="button" className="line-login" onClick={handleLineLogin}><span>LINE</span> 登入</button>
+        <a className="admin-login-link" onClick={close} href="#admin">後台登入</a>
       </div>
       <a className="nav-cta bag-link" href="#store"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>
       <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="切換選單">{menu ? <X /> : <Menu />}</button>
