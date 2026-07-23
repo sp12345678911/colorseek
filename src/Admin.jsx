@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock3, DollarSign, Eye, EyeOff, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, Eye, EyeOff, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, X } from 'lucide-react'
 import './admin.css'
+import './schedule.css'
 import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRevenueRecord } from './revenueApi'
+import { listSchedules, updateScheduleStatus } from './scheduleApi'
 
 const mockOrders = [
   { id: 'MS26072001', customer: '林郁晴', phone: '0912-345-678', items: '柔光修護髮油 × 1', total: 1280, status: '待確認', date: '07/20 14:32' },
@@ -10,20 +12,53 @@ const mockOrders = [
   { id: 'MS26071903', customer: '許雅雯', phone: '0933-480-119', items: '柔光修護髮油 × 1、髮膜 × 1', total: 2760, status: '已取消', date: '07/19 13:20' },
 ]
 
-const mockBookings = [
-  { id: 'BK072001', date: '2026-07-20', time: '11:00', customer: '張雅婷', phone: '0918-235-460', service: '專屬染髮', stylist: 'Muse', note: '想染柔霧可可色', status: '已確認' },
-  { id: 'BK072002', date: '2026-07-20', time: '14:30', customer: '李佳蓉', phone: '0926-118-730', service: '質感剪髮', stylist: 'Muse', note: '中長髮層次', status: '待確認' },
-  { id: 'BK072003', date: '2026-07-20', time: '17:00', customer: '陳品妤', phone: '0981-520-443', service: '深層護理', stylist: 'Muse', note: '染後乾燥修護', status: '已確認' },
-  { id: 'BK072101', date: '2026-07-21', time: '12:00', customer: '王若晴', phone: '0937-662-105', service: '柔感燙髮', stylist: 'Muse', note: '第一次燙髮，希望好整理', status: '待確認' },
-  { id: 'BK072102', date: '2026-07-21', time: '16:00', customer: '林書羽', phone: '0905-341-826', service: '專屬染髮', stylist: 'Muse', note: '', status: '已確認' },
-  { id: 'BK072201', date: '2026-07-22', time: '13:30', customer: '吳欣怡', phone: '0922-815-309', service: '質感剪髮', stylist: 'Muse', note: '短鮑伯造型', status: '已取消' },
-]
-
 const money = value => `NT$ ${Number(value).toLocaleString()}`
 const toRevenue = record => ({ ...record, id: record.id ?? record.record_id, service: Number(record.hair_service_revenue ?? 0), product: Number(record.product_revenue ?? 0), customerCount: Number(record.customer_count ?? 0) })
 const formPayload = form => {
   const data = new FormData(form)
   return { date: data.get('date'), hair_service_revenue: Number(data.get('service')), product_revenue: Number(data.get('product')), customer_count: Number(data.get('customerCount')), note: data.get('note') || '' }
+}
+
+const statusLabels = {
+  pending: '待確認',
+  confirmed: '已確認',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+const dateTimeParts = reservationDate => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(reservationDate))
+  const value = type => parts.find(part => part.type === type)?.value
+  return {
+    date: `${value('year')}-${value('month')}-${value('day')}`,
+    time: `${value('hour')}:${value('minute')}`,
+  }
+}
+
+const toBooking = schedule => {
+  const { date, time } = dateTimeParts(schedule.reservation_date)
+  const lines = (schedule.notes || '').split('\n')
+  const serviceLine = lines[0]?.match(/^服務[：:]\s*(.+)$/)
+  const hasLegacyServiceNote = serviceLine && (!schedule.service || serviceLine[1] === schedule.service)
+  return {
+    ...schedule,
+    id: schedule.id ?? schedule.schedule_id,
+    customer: schedule.booker,
+    phone: schedule.booker_phone ?? schedule.book_number,
+    date,
+    time,
+    service: schedule.service || serviceLine?.[1] || '預約服務',
+    note: hasLegacyServiceNote ? lines.slice(1).join('\n') : schedule.notes,
+    status: schedule.status || 'pending',
+  }
 }
 
 export default function Admin() {
@@ -36,7 +71,11 @@ export default function Admin() {
   const [revenueLoading, setRevenueLoading] = useState(false)
   const [revenueError, setRevenueError] = useState('')
   const [editingId, setEditingId] = useState(null)
-  const [bookingDate, setBookingDate] = useState('2026-07-20')
+  const [bookings, setBookings] = useState([])
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [bookingError, setBookingError] = useState('')
+  const [updatingBookingId, setUpdatingBookingId] = useState(null)
+  const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }))
 
   const login = event => {
     event.preventDefault()
@@ -57,6 +96,24 @@ export default function Admin() {
       setRevenues(records.map(toRevenue).sort((a, b) => b.date.localeCompare(a.date)))
       setRevenueError('')
     }).catch(err => active && setRevenueError(err.message)).finally(() => active && setRevenueLoading(false))
+    return () => { active = false }
+  }, [loggedIn])
+
+  useEffect(() => {
+    if (!loggedIn) return
+    let active = true
+    setBookingLoading(true)
+    listSchedules().then(result => {
+      if (!active) return
+      const records = Array.isArray(result) ? result : result.items || result.schedules || result.records || []
+      const normalized = records
+        .map(toBooking)
+        .filter(item => new Date(item.reservation_date).getTime() >= Date.now())
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+      setBookings(normalized)
+      if (normalized.length && !normalized.some(item => item.date === bookingDate)) setBookingDate(normalized[0].date)
+      setBookingError('')
+    }).catch(err => active && setBookingError(err.message)).finally(() => active && setBookingLoading(false))
     return () => { active = false }
   }, [loggedIn])
 
@@ -90,6 +147,21 @@ export default function Admin() {
     } catch (err) { setRevenueError(err.message) } finally { setRevenueLoading(false) }
   }
 
+  const changeBookingStatus = async (id, status) => {
+    setUpdatingBookingId(id)
+    setBookingError('')
+    try {
+      const updated = await updateScheduleStatus(id, status)
+      setBookings(current => current.map(item => item.id === id
+        ? (updated?.reservation_date ? { ...item, ...toBooking(updated), status } : { ...item, ...updated, status })
+        : item))
+    } catch (err) {
+      setBookingError(err.message)
+    } finally {
+      setUpdatingBookingId(null)
+    }
+  }
+
   if (!loggedIn) return <main className="admin-login">
     <a className="admin-back" href="#home"><ArrowLeft /> 回到網站</a>
     <section className="login-panel">
@@ -113,7 +185,7 @@ export default function Admin() {
   return <main className="admin-shell">
     <aside className="admin-sidebar">
       <div className="login-brand">MUSE <span>MANAGEMENT</span></div>
-      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 <b>{mockBookings.filter(booking => booking.status === '待確認').length}</b></button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
+      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
       <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={() => setLoggedIn(false)}><LogOut /> 登出</button></div>
     </aside>
     <section className="admin-content">
@@ -126,18 +198,29 @@ export default function Admin() {
           </section>
           <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : revenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div></section>
         </div>
-      </> : tab === 'bookings' ? <BookingsPanel bookingDate={bookingDate} setBookingDate={setBookingDate} /> : <section className="admin-card orders-card"><div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="demo-badge">示範資料</span></div><div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{mockOrders.map(order => <div className="order-row" key={order.id}><span><b>{order.id}</b><small>{order.date}</small></span><span>{order.customer}<small>{order.phone}</small></span><span>{order.items}</span><strong>{money(order.total)}</strong><span className={`order-status ${order.status}`}>{order.status}</span></div>)}</div></section>}
+      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : <section className="admin-card orders-card"><div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="demo-badge">示範資料</span></div><div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{mockOrders.map(order => <div className="order-row" key={order.id}><span><b>{order.id}</b><small>{order.date}</small></span><span>{order.customer}<small>{order.phone}</small></span><span>{order.items}</span><strong>{money(order.total)}</strong><span className={`order-status ${order.status}`}>{order.status}</span></div>)}</div></section>}
     </section>
   </main>
 }
 
-function BookingsPanel({ bookingDate, setBookingDate }) {
-  const dates = [...new Set(mockBookings.map(booking => booking.date))]
-  const bookings = mockBookings.filter(booking => booking.date === bookingDate).sort((a, b) => a.time.localeCompare(b.time))
+function BookingsPanel({ bookings: allBookings, bookingDate, setBookingDate, loading, error, updatingId, onStatusChange }) {
+  const [dateOffset, setDateOffset] = useState(0)
+  const showingAll = bookingDate === 'all'
+  const dates = [...new Set(allBookings.map(booking => booking.date))]
+  const maxDateOffset = Math.max(0, dates.length - 3)
+  const visibleDates = dates.slice(dateOffset, dateOffset + 3)
+  const bookings = (showingAll ? allBookings : allBookings.filter(booking => booking.date === bookingDate))
+    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+
+  useEffect(() => {
+    setDateOffset(current => Math.min(current, maxDateOffset))
+  }, [maxDateOffset])
+
   return <>
-    <div className="booking-summary">{dates.map(date => <button className={date === bookingDate ? 'active' : ''} key={date} onClick={() => setBookingDate(date)}><CalendarDays /><span>{new Date(`${date}T00:00:00`).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' })}<small>{mockBookings.filter(item => item.date === date).length} 筆預約</small></span></button>)}</div>
-    <section className="admin-card bookings-card"><div className="card-title"><div><p>BOOKING SCHEDULE</p><h2>{bookingDate} 預約時程</h2></div><label className="date-filter">選擇日期<input type="date" value={bookingDate} onChange={event => setBookingDate(event.target.value)} /></label></div>
-      {bookings.length ? <div className="booking-list">{bookings.map(booking => <article key={booking.id}><div className="booking-time"><Clock3 /><strong>{booking.time}</strong></div><div className="booking-service"><span><Scissors /></span><p><strong>{booking.service}</strong><small>{booking.id} · 設計師 {booking.stylist}</small></p></div><div className="booking-customer"><strong>{booking.customer}</strong><small>{booking.phone}</small></div><p className="booking-note">{booking.note || '無備註'}</p><span className={`order-status ${booking.status}`}>{booking.status}</span></article>)}</div> : <div className="empty-bookings"><CalendarDays /><h3>當天沒有預約</h3><p>請選擇其他日期查看。</p></div>}
+    {dates.length > 0 && <div className="booking-summary-carousel"><button type="button" className="booking-slide" aria-label="查看前面的預約日期" disabled={dateOffset === 0} onClick={() => setDateOffset(current => Math.max(0, current - 1))}><ChevronLeft /></button><div className="booking-summary">{visibleDates.map(date => <button className={date === bookingDate ? 'active' : ''} key={date} onClick={() => setBookingDate(date)}><CalendarDays /><span>{new Date(`${date}T00:00:00`).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' })}<small>{allBookings.filter(item => item.date === date).length} 筆預約</small></span></button>)}</div><button type="button" className="booking-slide" aria-label="查看更多預約日期" disabled={dateOffset === maxDateOffset} onClick={() => setDateOffset(current => Math.min(maxDateOffset, current + 1))}><ChevronRight /></button></div>}
+    <section className="admin-card bookings-card"><div className="card-title"><div><p>BOOKING SCHEDULE</p><h2>{showingAll ? '全部預約時程' : `${bookingDate} 預約時程`}</h2></div><div className="booking-filters"><button type="button" className={showingAll ? 'active' : ''} onClick={() => setBookingDate('all')}><CalendarDays /> 全部預約</button><label className="date-filter">選擇日期<input type="date" value={showingAll ? '' : bookingDate} onChange={event => setBookingDate(event.target.value)} /></label></div></div>
+      {error && <p className="booking-api-error" role="alert">{error}</p>}
+      {loading ? <div className="empty-bookings"><CalendarDays /><h3>載入預約中</h3><p>正在向排程 API 取得資料…</p></div> : bookings.length ? <div className="booking-list">{bookings.map(booking => <article key={booking.id}><div className="booking-time"><Clock3 /><p>{showingAll && <small>{booking.date}</small>}<strong>{booking.time}</strong></p></div><div className="booking-service"><span><Scissors /></span><p><strong>{booking.service}</strong><small>排程 #{booking.id}</small></p></div><div className="booking-customer"><strong>{booking.customer}</strong><small>{booking.phone}</small></div><p className="booking-note">{booking.note || '無備註'}</p><select className={`booking-status ${booking.status}`} aria-label={`更新 ${booking.customer} 的預約狀態`} value={booking.status} disabled={updatingId === booking.id} onChange={event => onStatusChange(booking.id, event.target.value)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></article>)}</div> : <div className="empty-bookings"><CalendarDays /><h3>{showingAll ? '目前沒有預約' : '當天沒有預約'}</h3><p>{showingAll ? '新預約建立後會顯示在這裡。' : '請選擇其他日期查看。'}</p></div>}
     </section>
   </>
 }

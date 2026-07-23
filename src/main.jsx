@@ -10,7 +10,9 @@ import product01 from '../source/good/S__134217755.jpg'
 import product02 from '../source/good/S__134217757.jpg'
 import product03 from '../source/good/S__134217758.jpg'
 import './styles.css'
+import './schedule.css'
 import Admin from './Admin.jsx'
+import { createSchedule } from './scheduleApi'
 
 const services = [
   { icon: Sparkles, name: '洗髮（含潤髮）', detail: '基礎清潔・潤髮護理', price: 'NT$ 200' },
@@ -39,9 +41,35 @@ const products = [
 function App() {
   const [menu, setMenu] = useState(false)
   const [sent, setSent] = useState(false)
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [bookingError, setBookingError] = useState('')
   const [cart, setCart] = useState({})
   const close = () => setMenu(false)
-  const submit = (e) => { e.preventDefault(); setSent(true) }
+  const submit = async event => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    const service = data.get('service')
+    const notes = data.get('notes')?.trim() || null
+
+    setBookingLoading(true)
+    setBookingError('')
+    try {
+      await createSchedule({
+        booker: data.get('booker').trim(),
+        booker_phone: data.get('booker_phone').trim(),
+        service,
+        reservation_date: new Date(`${data.get('date')}T${data.get('time')}:00+08:00`).toISOString(),
+        notes,
+      })
+      form.reset()
+      setSent(true)
+    } catch (error) {
+      setBookingError(error.message)
+    } finally {
+      setBookingLoading(false)
+    }
+  }
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0)
   const changeCart = (id, amount) => setCart(current => ({ ...current, [id]: Math.max(0, (current[id] || 0) + amount) }))
 
@@ -120,13 +148,14 @@ function App() {
       </div>
       <form className="booking-form" onSubmit={submit}>
         {sent ? <div className="success"><Check /><h3>收到你的預約了！</h3><p>我會在 24 小時內與你聯絡確認。</p><button type="button" onClick={()=>setSent(false)}>再填一次</button></div> : <>
-          <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
-          <div className="field"><label><CalendarDays /> 日期</label><input type="date" required /></div>
-          <div className="field"><label><Clock3 /> 時間</label><input type="time" required /></div>
-          <div className="field"><label>你的名字</label><input placeholder="怎麼稱呼你？" required /></div>
-          <div className="field"><label>聯絡電話</label><input type="tel" placeholder="09xx-xxx-xxx" required /></div>
-          <div className="field full"><label>想告訴我的事</label><textarea placeholder="目前髮況、理想髮型，或任何想先討論的細節…" /></div>
-          <button className="submit" type="submit">送出預約 <ArrowRight /></button>
+          <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select name="service" required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
+          <div className="field"><label><CalendarDays /> 日期</label><input name="date" type="date" required /></div>
+          <div className="field"><label><Clock3 /> 時間</label><input name="time" type="time" required /></div>
+          <div className="field"><label>你的名字</label><input name="booker" placeholder="怎麼稱呼你？" required /></div>
+          <div className="field"><label>聯絡電話</label><input name="booker_phone" type="tel" placeholder="09xx-xxx-xxx" required /></div>
+          <div className="field full"><label>想告訴我的事</label><textarea name="notes" placeholder="目前髮況、理想髮型，或任何想先討論的細節…" /></div>
+          {bookingError && <p className="booking-error" role="alert">{bookingError}</p>}
+          <button className="submit" type="submit" disabled={bookingLoading}>{bookingLoading ? '送出中…' : <>送出預約 <ArrowRight /></>}</button>
         </>}
       </form>
     </section>
