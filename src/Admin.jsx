@@ -76,6 +76,7 @@ export default function Admin() {
   const [bookingError, setBookingError] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState(null)
   const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }))
+  const [range, setRange] = useState({ start: '', end: '' })
 
   const login = event => {
     event.preventDefault()
@@ -181,6 +182,18 @@ export default function Admin() {
 
   const totalRevenue = revenues.reduce((sum, item) => sum + item.service + item.product, 0)
   const today = revenues[0] || { service: 0, product: 0 }
+  const filteredRevenues = revenues.filter(item => (!range.start || item.date >= range.start) && (!range.end || item.date <= range.end))
+  const rangeRevenue = filteredRevenues.reduce((sum, item) => sum + item.service + item.product, 0)
+  const rangeCustomers = filteredRevenues.reduce((sum, item) => sum + item.customerCount, 0)
+  const averageTicket = rangeCustomers ? Math.round(rangeRevenue / rangeCustomers) : 0
+
+  const setPresetRange = days => {
+    const latest = revenues[0]?.date || new Date().toLocaleDateString('en-CA')
+    const end = new Date(`${latest}T00:00:00`)
+    const start = new Date(end)
+    start.setDate(start.getDate() - days + 1)
+    setRange({ start: start.toLocaleDateString('en-CA'), end: latest })
+  }
 
   return <main className="admin-shell">
     <aside className="admin-sidebar">
@@ -191,7 +204,13 @@ export default function Admin() {
     <section className="admin-content">
       <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : '後台訂單'}</h1></div><div className="admin-user"><span>A</span><p>Admin<small>管理員</small></p></div></header>
       {tab === 'overview' ? <>
-        <div className="admin-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><CalendarDays /></span><p>目前紀錄<strong>{revenues.length} 天</strong></p></article></div>
+        <div className="admin-stats revenue-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><Users /></span><p>區間平均客單價<strong>{money(averageTicket)}</strong></p></article><article><span><CalendarDays /></span><p>區間紀錄<strong>{filteredRevenues.length} 天</strong></p></article></div>
+        <section className="admin-card performance-card">
+          <div className="performance-heading"><div className="card-title"><div><p>PERFORMANCE ANALYTICS</p><h2>業績趨勢分析</h2></div></div><div className="range-presets"><button type="button" onClick={() => setPresetRange(7)}>近 7 天</button><button type="button" onClick={() => setPresetRange(30)}>近 30 天</button><button type="button" onClick={() => setRange({ start: '', end: '' })}>全部</button></div></div>
+          <div className="range-filter"><label>開始日期<input type="date" value={range.start} max={range.end || undefined} onChange={event => setRange(value => ({ ...value, start: event.target.value }))} /></label><span>至</span><label>結束日期<input type="date" value={range.end} min={range.start || undefined} onChange={event => setRange(value => ({ ...value, end: event.target.value }))} /></label><small>{range.start || '最早紀錄'} — {range.end || '最新紀錄'}</small></div>
+          <RevenueChart records={filteredRevenues} />
+          <div className="range-summary"><span>區間業績<strong>{money(rangeRevenue)}</strong></span><span>來客數<strong>{rangeCustomers} 人</strong></span><span>平均客單價<strong>{money(averageTicket)}</strong></span></div>
+        </section>
         <div className="admin-grid">
           <section className="admin-card revenue-form"><div className="card-title"><div><p>DAILY REVENUE</p><h2>輸入當天業績</h2></div><Plus /></div>
             <form onSubmit={addRevenue}><label>日期<input name="date" type="date" defaultValue={new Date().toLocaleDateString('en-CA')} required /></label><div className="input-row"><label>服務業績<input name="service" type="number" min="0" placeholder="0" required /></label><label>商品業績<input name="product" type="number" min="0" placeholder="0" required /></label></div><label>來客數<input name="customerCount" type="number" min="0" placeholder="0" required /></label><label>備註<textarea name="note" placeholder="輸入今日營運備註（選填）" /></label>{revenueError && <p className="login-error">{revenueError}</p>}<button className="admin-primary" type="submit" disabled={revenueLoading}>{saved ? <><Check /> 已加入紀錄</> : revenueLoading ? '處理中…' : '儲存今日業績'}</button></form>
@@ -203,19 +222,42 @@ export default function Admin() {
   </main>
 }
 
-function BookingsPanel({ bookings: allBookings, bookingDate, setBookingDate, loading, error, updatingId, onStatusChange }) {
-  const [dateOffset, setDateOffset] = useState(0)
-  const showingAll = bookingDate === 'all'
-  const dates = [...new Set(allBookings.map(booking => booking.date))]
-  const maxDateOffset = Math.max(0, dates.length - 3)
-  const visibleDates = dates.slice(dateOffset, dateOffset + 3)
-  const bookings = (showingAll ? allBookings : allBookings.filter(booking => booking.date === bookingDate))
-    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+function RevenueChart({ records }) {
+  const [hoveredDate, setHoveredDate] = useState(null)
+  const data = Object.values(records.reduce((dailyRecords, record) => {
+    const dailyRecord = dailyRecords[record.date] || { date: record.date, service: 0, product: 0, customerCount: 0 }
+    dailyRecord.service += record.service
+    dailyRecord.product += record.product
+    dailyRecord.customerCount += record.customerCount
+    dailyRecords[record.date] = dailyRecord
+    return dailyRecords
+  }, {})).sort((a, b) => a.date.localeCompare(b.date))
+  if (!data.length) return <div className="chart-empty"><TrendingUp /><p>此區間沒有業績資料</p></div>
+  const width = 900, height = 270, left = 58, right = 55, top = 20, bottom = 42
+  const values = data.flatMap(item => [item.service, item.product, item.customerCount ? (item.service + item.product) / item.customerCount : 0])
+  const max = Math.max(...values, 1000) * 1.12
+  const maxCustomers = Math.max(...data.map(item => item.customerCount), 5) * 1.12
+  const x = index => data.length === 1 ? (left + width - right) / 2 : left + index * (width - left - right) / (data.length - 1)
+  const y = value => top + (height - top - bottom) * (1 - value / max)
+  const customerY = value => top + (height - top - bottom) * (1 - value / maxCustomers)
+  const points = key => data.map((item, index) => `${x(index)},${y(key === 'ticket' ? (item.customerCount ? (item.service + item.product) / item.customerCount : 0) : item[key])}`).join(' ')
+  const ticks = [0, .25, .5, .75, 1]
+  const hoveredIndex = data.findIndex(item => item.date === hoveredDate)
+  const hoveredItem = data[hoveredIndex]
+  const tooltipWidth = 205, tooltipHeight = 126
+  const tooltipX = hoveredItem ? Math.min(Math.max(x(hoveredIndex) - tooltipWidth / 2, left), width - right - tooltipWidth) : 0
+  const tooltipY = top + 4
+  return <div className="chart-wrap"><div className="chart-legend"><span className="series-service">服務業績</span><span className="series-product">商品業績</span><span className="series-ticket">平均客單價</span><span className="series-customers">來客數</span></div><svg className="revenue-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="服務、商品業績、平均客單價與來客數折線圖">
+    {ticks.map(tick => <g key={tick}><line x1={left} x2={width - right} y1={y(max * tick)} y2={y(max * tick)} /><text x={left - 10} y={y(max * tick) + 4}>{Math.round(max * tick / 1000)}k</text><text className="customer-axis" x={width - right + 8} y={customerY(maxCustomers * tick) + 4}>{Math.round(maxCustomers * tick)}人</text></g>)}
+    <polyline className="chart-line series-service" points={points('service')} /><polyline className="chart-line series-product" points={points('product')} /><polyline className="chart-line series-ticket" points={points('ticket')} /><polyline className="chart-line series-customers" points={data.map((item, index) => `${x(index)},${customerY(item.customerCount)}`).join(' ')} />
+    {data.map((item, index) => <g className="chart-day" key={item.date} tabIndex="0" aria-label={`${item.date} 總業績 ${money(item.service + item.product)}`} onMouseEnter={() => setHoveredDate(item.date)} onMouseLeave={() => setHoveredDate(null)} onFocus={() => setHoveredDate(item.date)} onBlur={() => setHoveredDate(null)}><rect className="chart-hover-target" x={x(index) - 18} y={top} width="36" height={height - top - 12} /><circle className="chart-dot series-ticket" cx={x(index)} cy={y(item.customerCount ? (item.service + item.product) / item.customerCount : 0)} r="4" /><circle className="chart-dot series-customers" cx={x(index)} cy={customerY(item.customerCount)} r="4" /><text className="customer-value" x={x(index)} y={customerY(item.customerCount) - 9}>{item.customerCount}</text><text className="date-label" x={x(index)} y={height - 15}>{data.length > 12 && index % Math.ceil(data.length / 10) ? '' : item.date.slice(5).replace('-', '/')}</text></g>)}
+    {hoveredItem && <g className="chart-tooltip" pointerEvents="none"><rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="5" /><text className="tooltip-date" x={tooltipX + 14} y={tooltipY + 21}>{hoveredItem.date}</text><text x={tooltipX + 14} y={tooltipY + 43}>服務業績</text><text className="tooltip-value" x={tooltipX + tooltipWidth - 14} y={tooltipY + 43}>{money(hoveredItem.service)}</text><text x={tooltipX + 14} y={tooltipY + 62}>商品業績</text><text className="tooltip-value" x={tooltipX + tooltipWidth - 14} y={tooltipY + 62}>{money(hoveredItem.product)}</text><text x={tooltipX + 14} y={tooltipY + 81}>總業績</text><text className="tooltip-value tooltip-total" x={tooltipX + tooltipWidth - 14} y={tooltipY + 81}>{money(hoveredItem.service + hoveredItem.product)}</text><text x={tooltipX + 14} y={tooltipY + 100}>來客數</text><text className="tooltip-value" x={tooltipX + tooltipWidth - 14} y={tooltipY + 100}>{hoveredItem.customerCount} 人</text><text x={tooltipX + 14} y={tooltipY + 119}>平均客單價</text><text className="tooltip-value" x={tooltipX + tooltipWidth - 14} y={tooltipY + 119}>{money(hoveredItem.customerCount ? Math.round((hoveredItem.service + hoveredItem.product) / hoveredItem.customerCount) : 0)}</text></g>}
+  </svg></div>
+}
 
-  useEffect(() => {
-    setDateOffset(current => Math.min(current, maxDateOffset))
-  }, [maxDateOffset])
-
+function BookingsPanel({ bookingDate, setBookingDate }) {
+  const dates = [...new Set(mockBookings.map(booking => booking.date))]
+  const bookings = mockBookings.filter(booking => booking.date === bookingDate).sort((a, b) => a.time.localeCompare(b.time))
   return <>
     {dates.length > 0 && <div className="booking-summary-carousel"><button type="button" className="booking-slide" aria-label="查看前面的預約日期" disabled={dateOffset === 0} onClick={() => setDateOffset(current => Math.max(0, current - 1))}><ChevronLeft /></button><div className="booking-summary">{visibleDates.map(date => <button className={date === bookingDate ? 'active' : ''} key={date} onClick={() => setBookingDate(date)}><CalendarDays /><span>{new Date(`${date}T00:00:00`).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' })}<small>{allBookings.filter(item => item.date === date).length} 筆預約</small></span></button>)}</div><button type="button" className="booking-slide" aria-label="查看更多預約日期" disabled={dateOffset === maxDateOffset} onClick={() => setDateOffset(current => Math.min(maxDateOffset, current + 1))}><ChevronRight /></button></div>}
     <section className="admin-card bookings-card"><div className="card-title"><div><p>BOOKING SCHEDULE</p><h2>{showingAll ? '全部預約時程' : `${bookingDate} 預約時程`}</h2></div><div className="booking-filters"><button type="button" className={showingAll ? 'active' : ''} onClick={() => setBookingDate('all')}><CalendarDays /> 全部預約</button><label className="date-filter">選擇日期<input type="date" value={showingAll ? '' : bookingDate} onChange={event => setBookingDate(event.target.value)} /></label></div></div>
