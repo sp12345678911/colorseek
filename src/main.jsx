@@ -15,8 +15,7 @@ import './lineLogin.css'
 import './nav.css'
 import Admin from './Admin.jsx'
 import { createSchedule } from './scheduleApi'
-import { getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
-import { LINE_LOGIN_URL } from './config'
+import { beginLineLogin, getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
 
 const membershipLabels = { normal: '一般會員', silver: '銀卡會員', gold: '金卡會員', vip: 'VIP 會員' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '調整' }
@@ -75,11 +74,19 @@ function App() {
   }, [])
 
   const handleLineLogin = () => {
-    if (!LINE_LOGIN_URL) {
-      setAuthError('尚未設定 VITE_LINE_LOGIN_URL')
-      return
+    try {
+      beginLineLogin('#home')
+    } catch (error) {
+      setAuthError(error.message)
     }
-    window.location.href = LINE_LOGIN_URL
+  }
+
+  const handleBookingLogin = () => {
+    try {
+      beginLineLogin('#booking')
+    } catch (error) {
+      setAuthError(error.message)
+    }
   }
 
   const toggleMember = async () => {
@@ -223,7 +230,7 @@ function App() {
         <p>選擇你方便的時間與想做的服務，我會在 24 小時內與你確認預約細節。</p>
         <div className="contact-info"><p>新北市金山區中正路37號1樓・金山農會步行 3 分鐘</p><p>Tue — Sun · 08:00 — 21:00</p></div>
       </div>
-      <form className="booking-form" onSubmit={submit}>
+      {authLoading ? <div className="booking-form booking-login-required"><span className="member-loading-dark">正在確認會員身分…</span></div> : !account ? <div className="booking-form booking-login-required"><span className="line-mark">LINE</span><h3>請先登入再預約</h3><p>使用 LINE 登入後即可建立會員預約並累積點數。</p><button type="button" className="line-login" onClick={handleBookingLogin}><span>LINE</span> 登入後預約</button>{authError && <small className="booking-auth-error">{authError}</small>}</div> : <form className="booking-form" onSubmit={submit}>
         {sent ? <div className="success"><Check /><h3>收到你的預約了！</h3><p>我會在 24 小時內與你聯絡確認。</p><button type="button" onClick={()=>setSent(false)}>再填一次</button></div> : <>
           <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select name="service" required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
           <div className="field"><label><CalendarDays /> 日期</label><input name="date" type="date" required /></div>
@@ -234,7 +241,7 @@ function App() {
           {bookingError && <p className="booking-error" role="alert">{bookingError}</p>}
           <button className="submit" type="submit" disabled={bookingLoading}>{bookingLoading ? '送出中…' : <>送出預約 <ArrowRight /></>}</button>
         </>}
-      </form>
+      </form>}
     </section>
 
     <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="#booking">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
@@ -246,6 +253,11 @@ function Root() {
   useEffect(() => {
     const updateHash = () => setHash(window.location.hash)
     window.addEventListener('hashchange', updateHash)
+    const returnHash = window.sessionStorage.getItem('line_login_return_hash')
+    if (returnHash) {
+      window.sessionStorage.removeItem('line_login_return_hash')
+      window.location.hash = returnHash
+    }
     return () => window.removeEventListener('hashchange', updateHash)
   }, [])
   return hash === '#admin' ? <Admin /> : <App />

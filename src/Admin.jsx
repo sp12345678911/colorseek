@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, Eye, EyeOff, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
 import './admin.css'
 import './schedule.css'
 import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRevenueRecord } from './revenueApi'
 import { listSchedules, updateScheduleStatus } from './scheduleApi'
+import { beginLineLogin, getCurrentAccount, logoutAccount } from './authApi'
 
 const mockOrders = [
   { id: 'MS26072001', customer: '林郁晴', phone: '0912-345-678', items: '柔光修護髮油 × 1', total: 1280, status: '待確認', date: '07/20 14:32' },
@@ -63,8 +64,10 @@ const toBooking = schedule => {
 
 export default function Admin() {
   const [loggedIn, setLoggedIn] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [adminAccount, setAdminAccount] = useState(null)
+  const [viewerAccount, setViewerAccount] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
   const [tab, setTab] = useState('overview')
   const [revenues, setRevenues] = useState([])
   const [saved, setSaved] = useState(false)
@@ -78,13 +81,50 @@ export default function Admin() {
   const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }))
   const [range, setRange] = useState({ start: '', end: '' })
 
-  const login = event => {
-    event.preventDefault()
-    const data = new FormData(event.currentTarget)
-    if (data.get('account') === 'admin' && data.get('password') === '123456') {
-      setLoggedIn(true)
-      setError('')
-    } else setError('帳號或密碼不正確')
+  useEffect(() => {
+    let active = true
+    getCurrentAccount()
+      .then(account => {
+        if (!active) return
+        setViewerAccount(account)
+        if (!account) {
+          setAuthError('')
+          return
+        }
+        if (account.role !== 'admin') {
+          setAuthError(`此 LINE 帳號權限為 ${account.role}，無法進入管理後台`)
+          return
+        }
+        setAdminAccount(account)
+        setLoggedIn(true)
+        setAuthError('')
+      })
+      .catch(error => active && setAuthError(error.message))
+      .finally(() => active && setAuthLoading(false))
+    return () => { active = false }
+  }, [])
+
+  const handleAdminLogin = async () => {
+    setAuthError('')
+    try {
+      if (viewerAccount) await logoutAccount()
+      beginLineLogin('#admin')
+    } catch (error) {
+      setAuthError(error.message)
+    }
+  }
+
+  const handleAdminLogout = async () => {
+    try {
+      await logoutAccount()
+    } catch {
+      // Clear the local view even if the server session has already expired.
+    } finally {
+      setAdminAccount(null)
+      setViewerAccount(null)
+      setLoggedIn(false)
+      window.location.hash = 'home'
+    }
   }
 
   useEffect(() => {
@@ -169,14 +209,12 @@ export default function Admin() {
       <div className="login-brand">MUSE <span>HAIR STUDIO</span></div>
       <p className="admin-kicker">PRIVATE MANAGEMENT</p>
       <h1>管理後台</h1>
-      <p className="login-lead">登入以查看每日營運與訂單資訊。</p>
-      <form onSubmit={login}>
-        <label>管理員帳號<input name="account" autoComplete="username" defaultValue="" required /></label>
-        <label>密碼<div className="password-field"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" defaultValue="" required /><button type="button" aria-label="顯示或隱藏密碼" onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff /> : <Eye />}</button></div></label>
-        {error && <p className="login-error">{error}</p>}
-        <button className="admin-primary" type="submit">登入管理後台 <ChevronRight /></button>
-      </form>
-      <small>DEMO ACCOUNT · ADMIN / 123456</small>
+      {authLoading ? <p className="login-lead">正在驗證 LINE 管理員身分…</p> : <>
+        <p className="login-lead">{viewerAccount ? `${viewerAccount.display_name}，你的帳號需要 admin 權限才能進入。` : '使用具有 admin 權限的 LINE 帳號登入。'}</p>
+        {authError && <p className="login-error">{authError}</p>}
+        <button className="line-login admin-line-login" type="button" onClick={handleAdminLogin}><span>LINE</span>{viewerAccount ? '切換 LINE 帳號' : '使用 LINE 登入'}</button>
+      </>}
+      <small>僅限已授權的管理員帳號</small>
     </section>
   </main>
 
@@ -199,10 +237,10 @@ export default function Admin() {
     <aside className="admin-sidebar">
       <div className="login-brand">MUSE <span>MANAGEMENT</span></div>
       <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
-      <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={() => setLoggedIn(false)}><LogOut /> 登出</button></div>
+      <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={handleAdminLogout}><LogOut /> 登出</button></div>
     </aside>
     <section className="admin-content">
-      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : '後台訂單'}</h1></div><div className="admin-user"><span>A</span><p>Admin<small>管理員</small></p></div></header>
+      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : '後台訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
       {tab === 'overview' ? <>
         <div className="admin-stats revenue-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><Users /></span><p>區間平均客單價<strong>{money(averageTicket)}</strong></p></article><article><span><CalendarDays /></span><p>區間紀錄<strong>{filteredRevenues.length} 天</strong></p></article></div>
         <section className="admin-card performance-card">

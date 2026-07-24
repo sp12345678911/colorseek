@@ -26,6 +26,60 @@
   text-align: center;
 }
 
+.admin-line-login {
+  justify-content: center;
+  margin-top: 22px;
+  min-height: 48px;
+  width: 100%;
+}
+
+.booking-login-required {
+  align-content: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.booking-login-required .line-mark {
+  color: #06c755;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+
+.booking-login-required h3 {
+  font: 500 25px 'Noto Serif TC', serif;
+  margin: 16px 0 8px;
+}
+
+.booking-login-required p {
+  color: #7b6d63;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0 auto 24px;
+  max-width: 330px;
+}
+
+.booking-login-required .line-login {
+  align-self: center;
+  font-size: 12px;
+  justify-content: center;
+  min-width: 180px;
+  padding: 13px 18px;
+}
+
+.member-loading-dark {
+  color: #796b61;
+  font-size: 11px;
+}
+
+.booking-auth-error {
+  color: #a63d31;
+  font-size: 10px;
+  margin-top: 12px;
+}
+
 .line-login:hover {
   background: #05b94e;
 }
