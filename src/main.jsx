@@ -126,7 +126,7 @@ function App() {
     setBookingError('')
     try {
       await createSchedule({
-        booker: data.get('booker').trim(),
+        booker: account.display_name,
         booker_phone: data.get('booker_phone').trim(),
         service,
         reservation_date: new Date(`${data.get('date')}T${data.get('time')}:00+08:00`).toISOString(),
@@ -235,8 +235,7 @@ function App() {
           <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select name="service" required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
           <div className="field"><label><CalendarDays /> 日期</label><input name="date" type="date" required /></div>
           <div className="field"><label><Clock3 /> 時間</label><input name="time" type="time" required /></div>
-          <div className="field"><label>你的名字</label><input key={`name-${account?.id || 'guest'}`} name="booker" defaultValue={account?.display_name || ''} placeholder="怎麼稱呼你？" required /></div>
-          <div className="field"><label>聯絡電話</label><input key={`phone-${account?.id || 'guest'}`} name="booker_phone" type="tel" defaultValue={account?.phone || ''} placeholder="09xx-xxx-xxx" required /></div>
+          <div className="field full"><label>聯絡電話</label><input key={`phone-${account.id}`} name="booker_phone" type="tel" defaultValue={account.phone || ''} placeholder="09xx-xxx-xxx" required /></div>
           <div className="field full"><label>想告訴我的事</label><textarea name="notes" placeholder="目前髮況、理想髮型，或任何想先討論的細節…" /></div>
           {bookingError && <p className="booking-error" role="alert">{bookingError}</p>}
           <button className="submit" type="submit" disabled={bookingLoading}>{bookingLoading ? '送出中…' : <>送出預約 <ArrowRight /></>}</button>
