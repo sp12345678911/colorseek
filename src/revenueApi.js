@@ -6,6 +6,7 @@ const REVENUE_PATH = '/api/v1/revenue-records'
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    credentials: 'include',
     headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
   })
   if (!response.ok) {
