@@ -1,4 +1,5 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+import { API_BASE_URL } from './config'
+
 const AUTH_PATH = '/api/v1/auth'
 
 async function request(path, options = {}) {

@@ -16,9 +16,7 @@ import './nav.css'
 import Admin from './Admin.jsx'
 import { createSchedule } from './scheduleApi'
 import { getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
-
-const LINE_LOGIN_URL = import.meta.env.VITE_LINE_LOGIN_URL
-  || 'https://ebda-220-128-216-143.ngrok-free.app/api/v1/auth/line/login'
+import { LINE_LOGIN_URL } from './config'
 
 const membershipLabels = { normal: '一般會員', silver: '銀卡會員', gold: '金卡會員', vip: 'VIP 會員' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '調整' }
@@ -77,6 +75,10 @@ function App() {
   }, [])
 
   const handleLineLogin = () => {
+    if (!LINE_LOGIN_URL) {
+      setAuthError('尚未設定 VITE_LINE_LOGIN_URL')
+      return
+    }
     window.location.href = LINE_LOGIN_URL
   }
 
@@ -152,7 +154,7 @@ function App() {
             {authError && <p className="member-error">{authError}</p>}
             <button type="button" className="member-logout" onClick={handleLogout}><LogOut /> 登出</button>
           </div>}
-        </div> : <button type="button" className="line-login" onClick={handleLineLogin}><span>LINE</span> 登入</button>}
+        </div> : <div className="line-login-wrap"><button type="button" className="line-login" onClick={handleLineLogin}><span>LINE</span> 登入</button>{authError && <small className="line-login-error">{authError}</small>}</div>}
         <a className="admin-login-link" onClick={close} href="#admin">後台登入</a>
       </div>
       <a className="nav-cta bag-link" href="#store"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>

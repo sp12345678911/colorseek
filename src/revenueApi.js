@@ -1,6 +1,7 @@
 // Development uses Vite's same-origin proxy so JSON requests are not blocked by
 // a CORS preflight. Set VITE_API_BASE_URL only when an absolute API URL is needed.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+import { API_BASE_URL } from './config'
+
 const REVENUE_PATH = '/api/v1/revenue-records'
 
 async function request(path, options = {}) {

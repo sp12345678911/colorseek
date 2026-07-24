@@ -12,6 +12,20 @@
   padding: 9px 13px;
 }
 
+.line-login-wrap {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.line-login-error {
+  color: #ffd2c9;
+  font-size: 8px;
+  max-width: 160px;
+  text-align: center;
+}
+
 .line-login:hover {
   background: #05b94e;
 }

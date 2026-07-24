@@ -1,6 +1,7 @@
 // Vite proxies /api to port 8000 during local development. For a deployed
 // frontend, set VITE_API_BASE_URL to the public URL of the same API service.
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+import { API_BASE_URL } from './config'
+
 const SCHEDULES_PATH = '/api/v1/schedules'
 
 async function request(path, options = {}) {
