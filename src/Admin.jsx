@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, ShoppingBag, Trash2, TrendingUp, Users, X } from 'lucide-react'
 import './admin.css'
 import './schedule.css'
 import './members.css'
@@ -7,13 +7,7 @@ import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRev
 import { listSchedules, updateScheduleStatus } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, logoutAccount } from './authApi'
 import { adjustAccountPoints, listAccountPoints, listAccounts, updateAccount } from './accountsApi'
-
-const mockOrders = [
-  { id: 'MS26072001', customer: '林郁晴', phone: '0912-345-678', items: '柔光修護髮油 × 1', total: 1280, status: '待確認', date: '07/20 14:32' },
-  { id: 'MS26072002', customer: '陳思妤', phone: '0988-120-567', items: '深層保濕髮膜 × 2', total: 2960, status: '已確認', date: '07/20 11:05' },
-  { id: 'MS26071904', customer: '王庭安', phone: '0921-667-520', items: '輕盈造型乳 × 1', total: 980, status: '已完成', date: '07/19 18:46' },
-  { id: 'MS26071903', customer: '許雅雯', phone: '0933-480-119', items: '柔光修護髮油 × 1、髮膜 × 1', total: 2760, status: '已取消', date: '07/19 13:20' },
-]
+import { createProduct, listOrders, listProducts, updateOrderStatus, updateProduct } from './commerceApi'
 
 const money = value => `NT$ ${Number(value).toLocaleString()}`
 const toRevenue = record => ({ ...record, id: record.id ?? record.record_id, service: Number(record.hair_service_revenue ?? 0), product: Number(record.product_revenue ?? 0), customerCount: Number(record.customer_count ?? 0) })
@@ -90,6 +84,11 @@ export default function Admin() {
   const [members, setMembers] = useState([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersError, setMembersError] = useState('')
+  const [products, setProducts] = useState([])
+  const [orders, setOrders] = useState([])
+  const [commerceLoading, setCommerceLoading] = useState(false)
+  const [commerceError, setCommerceError] = useState('')
+  const [updatingOrderId, setUpdatingOrderId] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -162,6 +161,26 @@ export default function Admin() {
       })
       .catch(error => active && setMembersError(error.message))
       .finally(() => active && setMembersLoading(false))
+    return () => { active = false }
+  }, [loggedIn, tab])
+
+  useEffect(() => {
+    if (!loggedIn || !['products', 'orders'].includes(tab)) return
+    let active = true
+    setCommerceLoading(true)
+    Promise.all([listProducts(true), listOrders()])
+      .then(([productRecords, orderRecords]) => {
+        if (!active) return
+        setProducts((Array.isArray(productRecords) ? productRecords : []).map(product => ({
+          ...product,
+          price: Number(product.price),
+          stock_quantity: Number(product.stock_quantity),
+        })))
+        setOrders(Array.isArray(orderRecords) ? orderRecords : [])
+        setCommerceError('')
+      })
+      .catch(error => active && setCommerceError(error.message))
+      .finally(() => active && setCommerceLoading(false))
     return () => { active = false }
   }, [loggedIn, tab])
 
@@ -260,6 +279,49 @@ export default function Admin() {
     }
   }
 
+  const saveProduct = async (id, data) => {
+    setCommerceLoading(true)
+    setCommerceError('')
+    try {
+      const savedProduct = id ? await updateProduct(id, data) : await createProduct(data)
+      const normalized = {
+        ...savedProduct,
+        price: Number(savedProduct.price),
+        stock_quantity: Number(savedProduct.stock_quantity),
+      }
+      setProducts(current => id
+        ? current.map(product => product.id === id ? normalized : product)
+        : [...current, normalized])
+      return normalized
+    } catch (error) {
+      setCommerceError(error.message)
+      throw error
+    } finally {
+      setCommerceLoading(false)
+    }
+  }
+
+  const changeOrderStatus = async (id, status) => {
+    setUpdatingOrderId(id)
+    setCommerceError('')
+    try {
+      const updated = await updateOrderStatus(id, status)
+      setOrders(current => current.map(order => order.id === id ? updated : order))
+      if (status === 'cancelled') {
+        const refreshedProducts = await listProducts(true)
+        setProducts(refreshedProducts.map(product => ({
+          ...product,
+          price: Number(product.price),
+          stock_quantity: Number(product.stock_quantity),
+        })))
+      }
+    } catch (error) {
+      setCommerceError(error.message)
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
   if (!loggedIn) return <main className="admin-login">
     <a className="admin-back" href="#home"><ArrowLeft /> 回到網站</a>
     <section className="login-panel">
@@ -293,11 +355,11 @@ export default function Admin() {
   return <main className="admin-shell">
     <aside className="admin-sidebar">
       <div className="login-brand">MUSE <span>MANAGEMENT</span></div>
-      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}><Users /> 會員管理</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
+      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}><Users /> 會員管理</button><button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}><Package /> 商品管理</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ShoppingBag /> 商城訂單 {orders.filter(order => order.status === 'pending').length > 0 && <b>{orders.filter(order => order.status === 'pending').length}</b>}</button></nav>
       <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={handleAdminLogout}><LogOut /> 登出</button></div>
     </aside>
     <section className="admin-content">
-      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : tab === 'members' ? '會員管理' : '後台訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
+      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : tab === 'members' ? '會員管理' : tab === 'products' ? '商品管理' : '商城訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
       {tab === 'overview' ? <>
         <div className="admin-stats revenue-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><Users /></span><p>區間平均客單價<strong>{money(averageTicket)}</strong></p></article><article><span><CalendarDays /></span><p>區間紀錄<strong>{filteredRevenues.length} 天</strong></p></article></div>
         <section className="admin-card performance-card">
@@ -312,9 +374,85 @@ export default function Admin() {
           </section>
           <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : revenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div></section>
         </div>
-      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : <section className="admin-card orders-card"><div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="demo-badge">示範資料</span></div><div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{mockOrders.map(order => <div className="order-row" key={order.id}><span><b>{order.id}</b><small>{order.date}</small></span><span>{order.customer}<small>{order.phone}</small></span><span>{order.items}</span><strong>{money(order.total)}</strong><span className={`order-status ${order.status}`}>{order.status}</span></div>)}</div></section>}
+      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : tab === 'products' ? <ProductsPanel products={products} loading={commerceLoading} error={commerceError} onSave={saveProduct} /> : <OrdersPanel orders={orders} loading={commerceLoading} error={commerceError} updatingId={updatingOrderId} onStatusChange={changeOrderStatus} />}
     </section>
   </main>
+}
+
+function ProductsPanel({ products, loading, error, onSave }) {
+  const [editingId, setEditingId] = useState(null)
+  const [creating, setCreating] = useState(false)
+  const [panelError, setPanelError] = useState('')
+
+  const submit = async (event, id = null) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    setPanelError('')
+    try {
+      await onSave(id, {
+        sku: data.get('sku')?.trim() || null,
+        name: data.get('name').trim(),
+        description: data.get('description')?.trim() || null,
+        image_url: data.get('image_url')?.trim() || null,
+        price: Number(data.get('price')),
+        stock_quantity: Number(data.get('stock_quantity')),
+        is_active: data.get('is_active') === 'on',
+      })
+      setEditingId(null)
+      setCreating(false)
+      form.reset()
+    } catch (requestError) {
+      setPanelError(requestError.message)
+    }
+  }
+
+  const fields = product => <>
+    <label>商品名稱<input name="name" defaultValue={product?.name || ''} required maxLength="255" /></label>
+    <label>SKU<input name="sku" defaultValue={product?.sku || ''} maxLength="50" placeholder="例如 MUSE-HAIR-OIL" /></label>
+    <label>目前售價<input name="price" type="number" min="0" step="1" defaultValue={product?.price ?? ''} required /></label>
+    <label>目前庫存<input name="stock_quantity" type="number" min="0" step="1" defaultValue={product?.stock_quantity ?? 0} required /></label>
+    <label className="wide">圖片網址<input name="image_url" type="url" defaultValue={product?.image_url || ''} placeholder="https://..." /></label>
+    <label className="wide">商品解說<textarea name="description" defaultValue={product?.description || ''} placeholder="商品用途、適合髮質與使用方式" /></label>
+    <label className="product-active"><input name="is_active" type="checkbox" defaultChecked={product?.is_active ?? true} /> 前台上架販售</label>
+    <div className="product-form-actions"><button className="admin-primary" disabled={loading}>{loading ? '儲存中…' : '儲存商品'}</button><button type="button" onClick={() => { setEditingId(null); setCreating(false) }}>取消</button></div>
+  </>
+
+  return <section className="admin-card products-admin-card">
+    <div className="card-title"><div><p>PRODUCT MANAGEMENT</p><h2>商品、售價與庫存</h2></div><button type="button" className="add-product" onClick={() => { setCreating(true); setEditingId(null) }}><Plus /> 新增商品</button></div>
+    {(error || panelError) && <p className="booking-api-error" role="alert">{panelError || error}</p>}
+    {creating && <form className="product-admin-form create" onSubmit={event => submit(event)}>{fields()}</form>}
+    {loading && !products.length ? <p className="revenue-message">商品載入中…</p> : !products.length ? <p className="revenue-message">目前沒有商品，請先新增商品。</p> : <div className="admin-product-list">{products.map(product => editingId === product.id
+      ? <form className="product-admin-form" key={product.id} onSubmit={event => submit(event, product.id)}>{fields(product)}</form>
+      : <article key={product.id} className={!product.is_active ? 'inactive' : ''}>
+        <div className="admin-product-image">{product.image_url ? <img src={product.image_url} alt="" /> : <Package />}</div>
+        <span><strong>{product.name}</strong><small>{product.sku || `商品 #${product.id}`}</small></span>
+        <span>{money(product.price)}<small>目前售價</small></span>
+        <span className={product.stock_quantity <= 3 ? 'low-stock' : ''}>{product.stock_quantity} 件<small>庫存</small></span>
+        <span className={product.is_active ? 'product-live' : 'product-offline'}>{product.is_active ? '上架中' : '已下架'}</span>
+        <button type="button" className="edit-product" onClick={() => { setEditingId(product.id); setCreating(false) }}><Pencil /> 編輯</button>
+      </article>)}</div>}
+  </section>
+}
+
+function OrdersPanel({ orders, loading, error, updatingId, onStatusChange }) {
+  const optionsFor = status => status === 'pending'
+    ? ['pending', 'confirmed', 'cancelled']
+    : status === 'confirmed'
+      ? ['confirmed', 'completed', 'cancelled']
+      : [status]
+
+  return <section className="admin-card orders-card">
+    <div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="order-count">{orders.length} 筆</span></div>
+    {error && <p className="booking-api-error" role="alert">{error}</p>}
+    {loading && !orders.length ? <p className="revenue-message">訂單載入中…</p> : !orders.length ? <p className="revenue-message">目前沒有商城訂單</p> : <div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{orders.map(order => <div className="order-row" key={order.id}>
+      <span><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleString('zh-TW')}</small>{order.notes && <small>備註：{order.notes}</small>}</span>
+      <span>{order.customer_name}<small>{order.customer_phone}</small></span>
+      <span>{order.items.map(item => `${item.product_name} × ${item.quantity}`).join('、')}<small>{order.items.map(item => `${money(item.unit_price)} / 件`).join('、')}</small></span>
+      <strong>{money(order.total_amount)}</strong>
+      <select className={`order-status status-${order.status}`} value={order.status} disabled={updatingId === order.id || ['completed', 'cancelled'].includes(order.status)} onChange={event => onStatusChange(order.id, event.target.value)}>{optionsFor(order.status).map(value => <option value={value} key={value}>{statusLabels[value]}</option>)}</select>
+    </div>)}</div>}
+  </section>
 }
 
 function MembersPanel({ members, loading, error, currentAdminId, onSave, onAdjustPoints }) {

@@ -16,6 +16,7 @@ import './nav.css'
 import Admin from './Admin.jsx'
 import { createSchedule } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
+import { createOrder, listProducts } from './commerceApi'
 
 const membershipLabels = { normal: '一般會員', silver: '銀卡會員', gold: '金卡會員', vip: 'VIP 會員' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '調整' }
@@ -38,11 +39,11 @@ const works = [
   { number: '04', name: '午夜藍黑', en: 'MIDNIGHT BLUE BLACK', image: work04 },
 ]
 
-const products = [
-  { id: 1, name: '柔光修護髮油', en: 'LUMINOUS HAIR OIL', note: '乾燥・毛躁髮適用', price: 1280, image: product01, imagePosition: 'center 58%' },
-  { id: 2, name: '輕盈造型乳', en: 'AIRY STYLING CREAM', note: '自然線條與柔霧定型', price: 980, image: product02, imagePosition: 'center' },
-  { id: 3, name: '深層保濕髮膜', en: 'DEEP MOISTURE MASK', note: '染燙後密集修護', price: 1480, image: product03, imagePosition: 'left center' },
-]
+const productFallbacks = {
+  'MUSE-HAIR-OIL': { image: product01, imagePosition: 'center 58%' },
+  'MUSE-STYLING-CREAM': { image: product02, imagePosition: 'center' },
+  'MUSE-MOISTURE-MASK': { image: product03, imagePosition: 'left center' },
+}
 
 function App() {
   const [menu, setMenu] = useState(false)
@@ -56,6 +57,11 @@ function App() {
   const [pointTransactions, setPointTransactions] = useState([])
   const [pointsLoading, setPointsLoading] = useState(false)
   const [cart, setCart] = useState({})
+  const [products, setProducts] = useState([])
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [storeError, setStoreError] = useState('')
+  const [orderLoading, setOrderLoading] = useState(false)
+  const [completedOrder, setCompletedOrder] = useState(null)
   const close = () => setMenu(false)
 
   useEffect(() => {
@@ -71,6 +77,27 @@ function App() {
         if (active) setAuthLoading(false)
       })
     return () => { active = false }
+  }, [])
+
+  const loadProducts = async () => {
+    setProductsLoading(true)
+    try {
+      const records = await listProducts()
+      setProducts((Array.isArray(records) ? records : []).map(product => ({
+        ...product,
+        price: Number(product.price),
+        stock_quantity: Number(product.stock_quantity),
+      })))
+      setStoreError('')
+    } catch (error) {
+      setStoreError(error.message)
+    } finally {
+      setProductsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadProducts()
   }, [])
 
   const handleLineLogin = () => {
@@ -141,14 +168,58 @@ function App() {
     }
   }
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0)
-  const changeCart = (id, amount) => setCart(current => ({ ...current, [id]: Math.max(0, (current[id] || 0) + amount) }))
+  const cartItems = products
+    .filter(product => cart[product.id] > 0)
+    .map(product => ({ ...product, quantity: cart[product.id] }))
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const changeCart = (product, amount) => setCart(current => ({
+    ...current,
+    [product.id]: Math.min(product.stock_quantity, Math.max(0, (current[product.id] || 0) + amount)),
+  }))
+
+  const handleStoreLogin = () => {
+    try {
+      beginLineLogin('#store')
+    } catch (error) {
+      setStoreError(error.message)
+    }
+  }
+
+  const submitOrder = async event => {
+    event.preventDefault()
+    if (!account) {
+      handleStoreLogin()
+      return
+    }
+    if (!cartItems.length) {
+      setStoreError('購物袋目前沒有商品')
+      return
+    }
+    const data = new FormData(event.currentTarget)
+    setOrderLoading(true)
+    setStoreError('')
+    try {
+      const order = await createOrder({
+        customer_phone: data.get('customer_phone').trim(),
+        notes: data.get('notes')?.trim() || null,
+        items: cartItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
+      })
+      setCompletedOrder(order)
+      setCart({})
+      await loadProducts()
+    } catch (error) {
+      setStoreError(error.message)
+    } finally {
+      setOrderLoading(false)
+    }
+  }
 
   return <main>
     <nav className="nav">
       <a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a>
       <div className={menu ? 'links open' : 'links'}>
-        <a onClick={close} href="#about">ABOUT ME</a><a onClick={close} href="#pricing">PRICE</a>
-        <a onClick={close} href="#portfolio">PORTFOLIO</a><a onClick={close} href="#store">STORE</a><a onClick={close} href="#booking">BOOKING</a>
+        <a onClick={close} href="#about">關於我們</a><a onClick={close} href="#pricing">價目表</a>
+        <a onClick={close} href="#portfolio">作品集</a><a onClick={close} href="#store">線上商城</a><a onClick={close} href="#booking">線上預約</a>
         {authLoading ? <span className="member-loading">會員載入中…</span> : account ? <div className="member-menu">
           <button type="button" className="member-trigger" aria-expanded={memberOpen} onClick={toggleMember}>
             {account.picture_url ? <img src={account.picture_url} alt="" referrerPolicy="no-referrer" /> : <span className="member-avatar">{account.display_name.slice(0, 1)}</span>}
@@ -164,7 +235,7 @@ function App() {
         </div> : <div className="line-login-wrap"><button type="button" className="line-login" onClick={handleLineLogin}><span>LINE</span> 登入</button>{authError && <small className="line-login-error">{authError}</small>}</div>}
         <a className="admin-login-link" onClick={close} href="#admin">後台登入</a>
       </div>
-      <a className="nav-cta bag-link" href="#store"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>
+      <a className="nav-cta bag-link" href="#cart"><ShoppingBag /> 購物袋 <span>{cartCount}</span></a>
       <button className="menu-btn" onClick={() => setMenu(!menu)} aria-label="切換選單">{menu ? <X /> : <Menu />}</button>
     </nav>
 
@@ -210,19 +281,29 @@ function App() {
     <section className="store section" id="store">
       <div className="section-label"><span>04</span> MUSE STORE</div>
       <div className="section-heading store-heading"><div><p className="eyebrow">CURATED ESSENTIALS</p><h2>把沙龍質感，<br />帶回你的日常。</h2></div><p>由我親自挑選的居家護理與造型品，<br />讓好髮型延續到每一天。</p></div>
-      <div className="products">{products.map(product => {
+      {productsLoading ? <p className="store-message">商品載入中…</p> : products.length ? <div className="products">{products.map((product, index) => {
         const quantity = cart[product.id] || 0
+        const fallback = productFallbacks[product.sku] || {}
+        const image = product.image_url || fallback.image
         return <article className="product-card" key={product.id}>
-          <div className="product-visual"><img src={product.image} alt={product.name} style={{objectPosition: product.imagePosition}} /><small>0{product.id}</small></div>
-          <div className="product-info"><p>{product.en}</p><h3>{product.name}</h3><span>{product.note}</span>
+          <div className="product-visual">{image ? <img src={image} alt={product.name} style={{objectPosition: fallback.imagePosition || 'center'}} /> : <span className="product-image-empty">尚未設定圖片</span>}<small>{String(index + 1).padStart(2, '0')}</small></div>
+          <div className="product-info"><p>{product.sku || 'MUSE SELECT'}</p><h3>{product.name}</h3><span>{product.description || '精選沙龍商品'}</span><small className={product.stock_quantity > 0 ? 'stock' : 'stock sold-out'}>{product.stock_quantity > 0 ? `庫存 ${product.stock_quantity} 件` : '目前缺貨'}</small>
             <div className="product-buy"><strong>NT$ {product.price.toLocaleString()}</strong>{quantity === 0
-              ? <button onClick={() => changeCart(product.id, 1)}>加入購物袋 <Plus /></button>
-              : <div className="quantity"><button aria-label="減少數量" onClick={() => changeCart(product.id, -1)}><Minus /></button><b>{quantity}</b><button aria-label="增加數量" onClick={() => changeCart(product.id, 1)}><Plus /></button></div>}
+              ? <button disabled={!product.stock_quantity} onClick={() => changeCart(product, 1)}>{product.stock_quantity ? '加入購物袋' : '已售完'} <Plus /></button>
+              : <div className="quantity"><button aria-label="減少數量" onClick={() => changeCart(product, -1)}><Minus /></button><b>{quantity}</b><button aria-label="增加數量" disabled={quantity >= product.stock_quantity} onClick={() => changeCart(product, 1)}><Plus /></button></div>}
             </div>
           </div>
         </article>
-      })}</div>
-      <div className="store-note"><ShoppingBag /><span>購物袋內有 <b>{cartCount}</b> 件商品</span><a href="#booking">聯絡我們完成訂購 <ArrowRight /></a></div>
+      })}</div> : <p className="store-message">目前沒有上架商品</p>}
+      <div className="store-note"><ShoppingBag /><span>購物袋內有 <b>{cartCount}</b> 件商品</span><a href="#cart">前往確認訂單 <ArrowRight /></a></div>
+      <section className="checkout" id="cart">
+        <div className="checkout-copy"><p className="eyebrow">SHOPPING BAG</p><h3>確認你的訂單</h3><p>售價與庫存會在送出時由系統再次確認，訂單成立後由店家與你聯繫。</p></div>
+        {!cartItems.length && !completedOrder ? <div className="cart-empty"><ShoppingBag /><p>購物袋目前沒有商品</p></div> : completedOrder ? <div className="order-success"><Check /><h3>訂單已送出</h3><p>訂單編號 <strong>{completedOrder.order_number}</strong></p><p>總金額 NT$ {Number(completedOrder.total_amount).toLocaleString()}</p><button type="button" onClick={() => setCompletedOrder(null)}>繼續選購</button></div> : <>
+          <div className="cart-items">{cartItems.map(item => <div key={item.id}><span>{item.name}<small>NT$ {item.price.toLocaleString()} × {item.quantity}</small></span><strong>NT$ {(item.price * item.quantity).toLocaleString()}</strong><button type="button" aria-label={`移除 ${item.name}`} onClick={() => setCart(current => ({ ...current, [item.id]: 0 }))}><X /></button></div>)}<p>合計 <strong>NT$ {cartTotal.toLocaleString()}</strong></p></div>
+          {!account ? <div className="checkout-login"><span className="line-mark">LINE</span><h3>登入後才能送出訂單</h3><p>我們會使用 LINE 會員名稱建立訂單。</p><button type="button" className="line-login" onClick={handleStoreLogin}><span>LINE</span> 登入後結帳</button></div> : <form className="checkout-form" onSubmit={submitOrder}><p>訂購人 <strong>{account.display_name}</strong></p><label>聯絡電話<input name="customer_phone" type="tel" defaultValue={account.phone || ''} required placeholder="09xx-xxx-xxx" /></label><label>訂單備註<textarea name="notes" placeholder="取貨需求或想告訴店家的事項（選填）" /></label><button className="submit" disabled={orderLoading}>{orderLoading ? '訂單送出中…' : <>送出訂單 <ArrowRight /></>}</button></form>}
+        </>}
+        {storeError && <p className="store-error" role="alert">{storeError}</p>}
+      </section>
     </section>
 
     <section className="booking section" id="booking">
