@@ -16,14 +16,8 @@ import './nav.css'
 import Admin from './Admin.jsx'
 import { createSchedule } from './scheduleApi'
 
-const LINE_CHANNEL_ID = import.meta.env.VITE_LINE_CHANNEL_ID || '2010814211'
-const LINE_REDIRECT_URI = import.meta.env.VITE_LINE_REDIRECT_URI || 'https://6efd-220-128-216-143.ngrok-free.app/api/v1/auth/line/callback'
-
-const createOAuthState = () => {
-  const bytes = new Uint8Array(24)
-  window.crypto.getRandomValues(bytes)
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
-}
+const LINE_LOGIN_URL = import.meta.env.VITE_LINE_LOGIN_URL
+  || 'https://ebda-220-128-216-143.ngrok-free.app/api/v1/auth/line/login'
 
 const services = [
   { icon: Sparkles, name: '洗髮（含潤髮）', detail: '基礎清潔・潤髮護理', price: 'NT$ 200' },
@@ -57,16 +51,7 @@ function App() {
   const [cart, setCart] = useState({})
   const close = () => setMenu(false)
   const handleLineLogin = () => {
-    const state = createOAuthState()
-    window.sessionStorage.setItem('line_oauth_state', state)
-    const query = new URLSearchParams({
-      response_type: 'code',
-      client_id: LINE_CHANNEL_ID,
-      redirect_uri: LINE_REDIRECT_URI,
-      state,
-      scope: 'profile openid',
-    })
-    window.location.assign(`https://access.line.me/oauth2/v2.1/authorize?${query}`)
+    window.location.href = LINE_LOGIN_URL
   }
   const submit = async event => {
     event.preventDefault()
