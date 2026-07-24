@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, Trash2, TrendingUp, Users, X } from 'lucide-react'
 import './admin.css'
 import './schedule.css'
+import './members.css'
 import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRevenueRecord } from './revenueApi'
 import { listSchedules, updateScheduleStatus } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, logoutAccount } from './authApi'
+import { adjustAccountPoints, listAccountPoints, listAccounts, updateAccount } from './accountsApi'
 
 const mockOrders = [
   { id: 'MS26072001', customer: '林郁晴', phone: '0912-345-678', items: '柔光修護髮油 × 1', total: 1280, status: '待確認', date: '07/20 14:32' },
@@ -26,6 +28,11 @@ const statusLabels = {
   completed: '已完成',
   cancelled: '已取消',
 }
+
+const roleLabels = { customer: '顧客', staff: '員工', admin: '管理員' }
+const accountStatusLabels = { active: '啟用', disabled: '停用' }
+const membershipLabels = { normal: '一般', silver: '銀卡', gold: '金卡', vip: 'VIP' }
+const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '人工調整' }
 
 const dateTimeParts = reservationDate => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -80,6 +87,9 @@ export default function Admin() {
   const [updatingBookingId, setUpdatingBookingId] = useState(null)
   const [bookingDate, setBookingDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' }))
   const [range, setRange] = useState({ start: '', end: '' })
+  const [members, setMembers] = useState([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [membersError, setMembersError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -139,6 +149,53 @@ export default function Admin() {
     }).catch(err => active && setRevenueError(err.message)).finally(() => active && setRevenueLoading(false))
     return () => { active = false }
   }, [loggedIn])
+
+  useEffect(() => {
+    if (!loggedIn || tab !== 'members') return
+    let active = true
+    setMembersLoading(true)
+    listAccounts()
+      .then(records => {
+        if (!active) return
+        setMembers(Array.isArray(records) ? records : [])
+        setMembersError('')
+      })
+      .catch(error => active && setMembersError(error.message))
+      .finally(() => active && setMembersLoading(false))
+    return () => { active = false }
+  }, [loggedIn, tab])
+
+  const saveMember = async (id, data) => {
+    setMembersLoading(true)
+    setMembersError('')
+    try {
+      const updated = await updateAccount(id, data)
+      setMembers(current => current.map(member => member.id === id ? updated : member))
+      return updated
+    } catch (error) {
+      setMembersError(error.message)
+      throw error
+    } finally {
+      setMembersLoading(false)
+    }
+  }
+
+  const savePointAdjustment = async (id, data) => {
+    setMembersLoading(true)
+    setMembersError('')
+    try {
+      const transaction = await adjustAccountPoints(id, data)
+      setMembers(current => current.map(member => member.id === id
+        ? { ...member, points_balance: transaction.balance_after }
+        : member))
+      return transaction
+    } catch (error) {
+      setMembersError(error.message)
+      throw error
+    } finally {
+      setMembersLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!loggedIn) return
@@ -236,11 +293,11 @@ export default function Admin() {
   return <main className="admin-shell">
     <aside className="admin-sidebar">
       <div className="login-brand">MUSE <span>MANAGEMENT</span></div>
-      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
+      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}><Users /> 會員管理</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><Package /> 後台訂單 <b>{mockOrders.filter(order => order.status === '待確認').length}</b></button></nav>
       <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={handleAdminLogout}><LogOut /> 登出</button></div>
     </aside>
     <section className="admin-content">
-      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : '後台訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
+      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : tab === 'members' ? '會員管理' : '後台訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
       {tab === 'overview' ? <>
         <div className="admin-stats revenue-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><Users /></span><p>區間平均客單價<strong>{money(averageTicket)}</strong></p></article><article><span><CalendarDays /></span><p>區間紀錄<strong>{filteredRevenues.length} 天</strong></p></article></div>
         <section className="admin-card performance-card">
@@ -255,9 +312,128 @@ export default function Admin() {
           </section>
           <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : revenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div></section>
         </div>
-      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : <section className="admin-card orders-card"><div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="demo-badge">示範資料</span></div><div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{mockOrders.map(order => <div className="order-row" key={order.id}><span><b>{order.id}</b><small>{order.date}</small></span><span>{order.customer}<small>{order.phone}</small></span><span>{order.items}</span><strong>{money(order.total)}</strong><span className={`order-status ${order.status}`}>{order.status}</span></div>)}</div></section>}
+      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : <section className="admin-card orders-card"><div className="card-title"><div><p>STORE ORDERS</p><h2>商城訂單</h2></div><span className="demo-badge">示範資料</span></div><div className="orders-table"><div className="orders-head"><span>訂單編號</span><span>顧客</span><span>訂購內容</span><span>金額</span><span>狀態</span></div>{mockOrders.map(order => <div className="order-row" key={order.id}><span><b>{order.id}</b><small>{order.date}</small></span><span>{order.customer}<small>{order.phone}</small></span><span>{order.items}</span><strong>{money(order.total)}</strong><span className={`order-status ${order.status}`}>{order.status}</span></div>)}</div></section>}
     </section>
   </main>
+}
+
+function MembersPanel({ members, loading, error, currentAdminId, onSave, onAdjustPoints }) {
+  const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState(null)
+  const [pointHistory, setPointHistory] = useState({})
+  const [panelError, setPanelError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredMembers = members.filter(member => !normalizedQuery || [
+    member.display_name,
+    member.email,
+    member.phone,
+    member.line_user_id,
+  ].some(value => value?.toLowerCase().includes(normalizedQuery)))
+
+  const openMember = async member => {
+    const nextId = selectedId === member.id ? null : member.id
+    setSelectedId(nextId)
+    setPanelError('')
+    if (!nextId || pointHistory[member.id]) return
+    setActionLoading(true)
+    try {
+      const history = await listAccountPoints(member.id)
+      setPointHistory(current => ({ ...current, [member.id]: history }))
+    } catch (requestError) {
+      setPanelError(requestError.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const submitMember = async (event, member) => {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    setActionLoading(true)
+    setPanelError('')
+    try {
+      await onSave(member.id, {
+        role: data.get('role') || member.role,
+        status: data.get('status') || member.status,
+        membership_level: data.get('membership_level'),
+        phone: data.get('phone')?.trim() || null,
+        birthday: data.get('birthday') || null,
+      })
+    } catch (requestError) {
+      setPanelError(requestError.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const submitPoints = async (event, member) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const data = new FormData(form)
+    if (Number(data.get('amount')) === 0) {
+      setPanelError('點數異動不可為 0')
+      return
+    }
+    setActionLoading(true)
+    setPanelError('')
+    try {
+      const transaction = await onAdjustPoints(member.id, {
+        amount: Number(data.get('amount')),
+        transaction_type: 'adjustment',
+        description: data.get('description').trim(),
+        source_type: 'manual',
+        source_id: null,
+        expires_at: null,
+        idempotency_key: window.crypto.randomUUID(),
+      })
+      setPointHistory(current => ({
+        ...current,
+        [member.id]: [transaction, ...(current[member.id] || [])],
+      }))
+      form.reset()
+    } catch (requestError) {
+      setPanelError(requestError.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  return <section className="admin-card members-card">
+    <div className="card-title members-heading"><div><p>ACCOUNT MANAGEMENT</p><h2>LINE 會員帳號</h2></div><label>搜尋會員<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="姓名、電話、Email 或 LINE ID" /></label></div>
+    <div className="member-counts"><span>會員總數<strong>{members.length}</strong></span><span>啟用帳號<strong>{members.filter(member => member.status === 'active').length}</strong></span><span>管理員<strong>{members.filter(member => member.role === 'admin').length}</strong></span><span>總可用點數<strong>{members.reduce((sum, member) => sum + member.points_balance, 0).toLocaleString()}</strong></span></div>
+    {(error || panelError) && <p className="booking-api-error" role="alert">{panelError || error}</p>}
+    {loading && !members.length ? <p className="revenue-message">載入會員資料中…</p> : !filteredMembers.length ? <p className="revenue-message">找不到符合條件的會員</p> : <div className="members-list">{filteredMembers.map(member => {
+      const selected = selectedId === member.id
+      const isCurrentAdmin = member.id === currentAdminId
+      return <article className={selected ? 'expanded' : ''} key={member.id}>
+        <button type="button" className="member-row" onClick={() => openMember(member)}>
+          <span className="account-identity">{member.picture_url ? <img src={member.picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{member.display_name.slice(0, 1)}</i>}<span><strong>{member.display_name}{isCurrentAdmin && <em>目前登入</em>}</strong><small>#{member.id} · {member.line_user_id}</small></span></span>
+          <span>{member.phone || '未填電話'}<small>{member.email || '未提供 Email'}</small></span>
+          <span className={`account-badge role-${member.role}`}>{roleLabels[member.role]}</span>
+          <span className={`account-badge status-${member.status}`}>{accountStatusLabels[member.status]}</span>
+          <span>{membershipLabels[member.membership_level]}<small>{member.points_balance.toLocaleString()} 點</small></span>
+          <ChevronDown />
+        </button>
+        {selected && <div className="member-detail">
+          <form className="member-edit-form" onSubmit={event => submitMember(event, member)}>
+            <h3>帳號資料與權限</h3>
+            <label>角色<select name="role" defaultValue={member.role} disabled={isCurrentAdmin}>{Object.entries(roleLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+            <label>帳號狀態<select name="status" defaultValue={member.status} disabled={isCurrentAdmin}>{Object.entries(accountStatusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+            <label>會員等級<select name="membership_level" defaultValue={member.membership_level}>{Object.entries(membershipLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+            <label>電話<input name="phone" defaultValue={member.phone || ''} placeholder="會員電話" /></label>
+            <label>生日<input name="birthday" type="date" defaultValue={member.birthday || ''} /></label>
+            {isCurrentAdmin && <small>為避免鎖住自己的管理權限，目前登入帳號不可修改角色與狀態。</small>}
+            <button className="admin-primary" type="submit" disabled={actionLoading}>{actionLoading ? '儲存中…' : '儲存會員資料'}</button>
+          </form>
+          <div className="points-management">
+            <form onSubmit={event => submitPoints(event, member)}><h3>人工調整點數</h3><p>目前餘額 <strong>{member.points_balance.toLocaleString()} 點</strong></p><label>異動點數<input name="amount" type="number" required placeholder="增加填正數，扣除填負數" /></label><label>原因<input name="description" required maxLength="500" placeholder="例如：活動贈點、客服調整" /></label><button className="admin-primary" type="submit" disabled={actionLoading}>{actionLoading ? '處理中…' : '確認調整點數'}</button></form>
+            <div className="account-point-history"><h3>點數流水</h3>{actionLoading && !pointHistory[member.id] ? <small>載入中…</small> : pointHistory[member.id]?.length ? pointHistory[member.id].map(item => <div key={item.id}><span>{item.description || pointTypeLabels[item.transaction_type]}<small>{new Date(item.created_at).toLocaleString('zh-TW')}</small></span><b className={item.amount > 0 ? 'positive' : 'negative'}>{item.amount > 0 ? '+' : ''}{item.amount}<small>餘額 {item.balance_after}</small></b></div>) : <small>目前沒有點數紀錄</small>}</div>
+          </div>
+        </div>}
+      </article>
+    })}</div>}
+  </section>
 }
 
 function RevenueChart({ records }) {

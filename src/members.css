@@ -1,0 +1,301 @@
+.members-heading {
+  align-items: end;
+}
+
+.members-heading label {
+  color: #8f8177;
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  gap: 6px;
+  width: min(320px, 42%);
+}
+
+.members-heading input,
+.member-detail input,
+.member-detail select {
+  background: #fff;
+  border: 1px solid #d8cbbd;
+  color: #443831;
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.member-counts {
+  background: #f4ebdf;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 24px;
+}
+
+.member-counts span {
+  border-right: 1px solid #ded1c4;
+  color: #8d7d71;
+  font-size: 9px;
+  padding: 15px 18px;
+}
+
+.member-counts span:last-child {
+  border: 0;
+}
+
+.member-counts strong {
+  color: #3d332d;
+  display: block;
+  font-size: 18px;
+  margin-top: 4px;
+}
+
+.members-list > article {
+  border-top: 1px solid #e8ded3;
+}
+
+.member-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #51453d;
+  cursor: pointer;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1.6fr 1.2fr .65fr .65fr .75fr 20px;
+  padding: 17px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.member-row > span {
+  font-size: 10px;
+  min-width: 0;
+}
+
+.member-row small {
+  color: #9b8c81;
+  display: block;
+  font-size: 8px;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-row > svg {
+  color: #a09287;
+  transition: transform .2s;
+  width: 15px;
+}
+
+.members-list article.expanded .member-row > svg {
+  transform: rotate(180deg);
+}
+
+.account-identity {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.account-identity img,
+.account-identity > i {
+  border-radius: 50%;
+  flex: 0 0 36px;
+  height: 36px;
+  object-fit: cover;
+  width: 36px;
+}
+
+.account-identity > i {
+  align-items: center;
+  background: #332a24;
+  color: #fff;
+  display: flex;
+  font-style: normal;
+  justify-content: center;
+}
+
+.account-identity em {
+  background: #e5ead8;
+  color: #657343;
+  font-size: 7px;
+  font-style: normal;
+  margin-left: 6px;
+  padding: 3px 5px;
+}
+
+.account-badge {
+  border-radius: 16px;
+  padding: 6px 9px;
+  text-align: center;
+  width: max-content;
+}
+
+.role-admin {
+  background: #e7ddd8;
+  color: #7b493b;
+}
+
+.role-staff {
+  background: #e4e8d8;
+  color: #667142;
+}
+
+.role-customer {
+  background: #eee6dc;
+  color: #77695e;
+}
+
+.status-active {
+  background: #dce9df;
+  color: #47705b;
+}
+
+.status-disabled {
+  background: #eee0dd;
+  color: #9b5e55;
+}
+
+.member-detail {
+  background: #f6eee4;
+  border-top: 1px solid #e2d6c9;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: 1fr 1fr;
+  padding: 24px;
+}
+
+.member-detail h3 {
+  font: 500 16px 'Noto Serif TC', serif;
+  margin: 0 0 16px;
+}
+
+.member-edit-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.member-edit-form h3,
+.member-edit-form > small,
+.member-edit-form > button {
+  grid-column: 1 / -1;
+}
+
+.member-edit-form label,
+.points-management label {
+  color: #77695e;
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  gap: 6px;
+}
+
+.member-edit-form > small {
+  color: #a06b4e;
+  font-size: 8px;
+}
+
+.points-management {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: .85fr 1.15fr;
+}
+
+.points-management form {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.points-management form p {
+  color: #897a6f;
+  font-size: 9px;
+  margin: -8px 0 2px;
+}
+
+.points-management form p strong {
+  color: #b65e32;
+  font-size: 16px;
+  margin-left: 5px;
+}
+
+.account-point-history {
+  max-height: 290px;
+  overflow-y: auto;
+}
+
+.account-point-history > div {
+  border-top: 1px solid #e1d5c8;
+  display: flex;
+  font-size: 9px;
+  justify-content: space-between;
+  padding: 9px 2px;
+}
+
+.account-point-history small {
+  color: #9b8d81;
+  display: block;
+  font-size: 8px;
+  margin-top: 3px;
+}
+
+.account-point-history b {
+  text-align: right;
+}
+
+.account-point-history .positive {
+  color: #47705b;
+}
+
+.account-point-history .negative {
+  color: #a9582e;
+}
+
+@media (max-width: 1100px) {
+  .member-row {
+    grid-template-columns: 1.5fr 1fr .6fr .6fr .7fr 18px;
+  }
+
+  .member-detail,
+  .points-management {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .members-heading {
+    align-items: stretch;
+    display: block;
+  }
+
+  .members-heading label {
+    margin-top: 16px;
+    width: 100%;
+  }
+
+  .member-counts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .member-counts span:nth-child(2) {
+    border-right: 0;
+  }
+
+  .member-row {
+    grid-template-columns: 1.4fr .65fr .65fr 18px;
+    min-width: 540px;
+  }
+
+  .member-row > span:nth-child(2),
+  .member-row > span:nth-child(5) {
+    display: none;
+  }
+
+  .members-list {
+    overflow-x: auto;
+  }
+
+  .member-detail {
+    min-width: 540px;
+  }
+}
