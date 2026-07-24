@@ -295,7 +295,6 @@ function App() {
           </div>
         </article>
       })}</div> : <p className="store-message">目前沒有上架商品</p>}
-      <div className="store-note"><ShoppingBag /><span>購物袋內有 <b>{cartCount}</b> 件商品</span><a href="#cart">前往確認訂單 <ArrowRight /></a></div>
       <section className="checkout" id="cart">
         <div className="checkout-copy"><p className="eyebrow">SHOPPING BAG</p><h3>確認你的訂單</h3><p>售價與庫存會在送出時由系統再次確認，訂單成立後由店家與你聯繫。</p></div>
         {!cartItems.length && !completedOrder ? <div className="cart-empty"><ShoppingBag /><p>購物袋目前沒有商品</p></div> : completedOrder ? <div className="order-success"><Check /><h3>訂單已送出</h3><p>訂單編號 <strong>{completedOrder.order_number}</strong></p><p>總金額 NT$ {Number(completedOrder.total_amount).toLocaleString()}</p><button type="button" onClick={() => setCompletedOrder(null)}>繼續選購</button></div> : <>
