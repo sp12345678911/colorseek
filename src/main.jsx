@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Camera, Coins, LogOut, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Camera, Coins, LogOut, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
 import hero from './assets/salon-hero.png'
 import work01 from './assets/work-01.jpg'
 import work02 from './assets/work-02.jpg'
@@ -59,6 +59,7 @@ function App() {
   const [cart, setCart] = useState({})
   const [products, setProducts] = useState([])
   const [productsLoading, setProductsLoading] = useState(true)
+  const [productOffset, setProductOffset] = useState(0)
   const [storeError, setStoreError] = useState('')
   const [orderLoading, setOrderLoading] = useState(false)
   const [completedOrder, setCompletedOrder] = useState(null)
@@ -99,6 +100,13 @@ function App() {
   useEffect(() => {
     loadProducts()
   }, [])
+
+  const maxProductOffset = Math.max(0, products.length - 3)
+  const visibleProducts = products.slice(productOffset, productOffset + 3)
+
+  useEffect(() => {
+    setProductOffset(current => Math.min(current, maxProductOffset))
+  }, [maxProductOffset])
 
   const handleLineLogin = () => {
     try {
@@ -281,12 +289,14 @@ function App() {
     <section className="store section" id="store">
       <div className="section-label"><span>04</span> MUSE STORE</div>
       <div className="section-heading store-heading"><div><p className="eyebrow">CURATED ESSENTIALS</p><h2>把沙龍質感，<br />帶回你的日常。</h2></div><p>由我親自挑選的居家護理與造型品，<br />讓好髮型延續到每一天。</p></div>
-      {productsLoading ? <p className="store-message">商品載入中…</p> : products.length ? <div className="products">{products.map((product, index) => {
+      {productsLoading ? <p className="store-message">商品載入中…</p> : products.length ? <div className="product-carousel">
+        {products.length > 3 && <button type="button" className="product-slide previous" aria-label="查看前面的商品" disabled={productOffset === 0} onClick={() => setProductOffset(current => Math.max(0, current - 1))}><ChevronLeft /></button>}
+        <div className="products">{visibleProducts.map((product, index) => {
         const quantity = cart[product.id] || 0
         const fallback = productFallbacks[product.sku] || {}
         const image = product.image_url || fallback.image
         return <article className="product-card" key={product.id}>
-          <div className="product-visual">{image ? <img src={image} alt={product.name} style={{objectPosition: fallback.imagePosition || 'center'}} /> : <span className="product-image-empty">尚未設定圖片</span>}<small>{String(index + 1).padStart(2, '0')}</small></div>
+          <div className="product-visual">{image ? <img src={image} alt={product.name} style={{objectPosition: fallback.imagePosition || 'center'}} /> : <span className="product-image-empty">尚未設定圖片</span>}<small>{String(productOffset + index + 1).padStart(2, '0')}</small></div>
           <div className="product-info"><p>{product.sku || 'MUSE SELECT'}</p><h3>{product.name}</h3><span>{product.description || '精選沙龍商品'}</span><small className={product.stock_quantity > 0 ? 'stock' : 'stock sold-out'}>{product.stock_quantity > 0 ? `庫存 ${product.stock_quantity} 件` : '目前缺貨'}</small>
             <div className="product-buy"><strong>NT$ {product.price.toLocaleString()}</strong>{quantity === 0
               ? <button disabled={!product.stock_quantity} onClick={() => changeCart(product, 1)}>{product.stock_quantity ? '加入購物袋' : '已售完'} <Plus /></button>
@@ -294,7 +304,9 @@ function App() {
             </div>
           </div>
         </article>
-      })}</div> : <p className="store-message">目前沒有上架商品</p>}
+      })}</div>
+        {products.length > 3 && <button type="button" className="product-slide next" aria-label="查看更多商品" disabled={productOffset === maxProductOffset} onClick={() => setProductOffset(current => Math.min(maxProductOffset, current + 1))}><ChevronRight /></button>}
+      </div> : <p className="store-message">目前沒有上架商品</p>}
       <section className="checkout" id="cart">
         <div className="checkout-copy"><p className="eyebrow">SHOPPING BAG</p><h3>確認你的訂單</h3><p>售價與庫存會在送出時由系統再次確認，訂單成立後由店家與你聯繫。</p></div>
         {!cartItems.length && !completedOrder ? <div className="cart-empty"><ShoppingBag /><p>購物袋目前沒有商品</p></div> : completedOrder ? <div className="order-success"><Check /><h3>訂單已送出</h3><p>訂單編號 <strong>{completedOrder.order_number}</strong></p><p>總金額 NT$ {Number(completedOrder.total_amount).toLocaleString()}</p><button type="button" onClick={() => setCompletedOrder(null)}>繼續選購</button></div> : <>
