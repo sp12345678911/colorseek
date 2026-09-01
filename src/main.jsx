@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Camera, Coins, LogOut, Menu, Minus, Plus, Scissors, ShoppingBag, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Camera, Coins, LogOut, Menu, Minus, Plus, ShoppingBag, X } from 'lucide-react'
 import hero from './assets/salon-hero.png'
 import work01 from './assets/work-01.jpg'
 import work02 from './assets/work-02.jpg'
@@ -14,23 +14,12 @@ import './schedule.css'
 import './lineLogin.css'
 import './nav.css'
 import Admin from './Admin.jsx'
-import { createSchedule } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
 import { createOrder, listProducts } from './commerceApi'
+import { services } from './services'
 
 const membershipLabels = { normal: '一般會員', silver: '銀卡會員', gold: '金卡會員', vip: 'VIP 會員' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '調整' }
-
-const services = [
-  { icon: Sparkles, name: '洗髮（含潤髮）', detail: '基礎清潔・潤髮護理', price: 'NT$ 200' },
-  { icon: Scissors, name: '剪髮', detail: '專業剪裁・造型整理', price: 'NT$ 300' },
-  { icon: 'wave', name: '冷燙', detail: '依髮長、髮量現場評估', price: 'NT$ 1,200+' },
-  { icon: 'wave', name: '縮毛矯正／溫塑燙', detail: '依髮長、髮量現場評估', price: 'NT$ 1,700+' },
-  { icon: Sparkles, name: '染髮', detail: '依髮長、髮量現場評估', price: 'NT$ 1,500+' },
-  { icon: 'leaf', name: '一般護髮', detail: '日常髮絲修護', price: 'NT$ 1,000' },
-  { icon: 'leaf', name: '結構式二段護髮', detail: '兩階段深層結構修護', price: 'NT$ 1,500' },
-  { icon: 'leaf', name: '深層頭皮護理', detail: '頭皮清潔・舒緩養護', price: 'NT$ 1,200' },
-]
 
 const works = [
   { number: '01', name: '莓果暖棕', en: 'BERRY WARM BROWN', image: work01 },
@@ -47,9 +36,6 @@ const productFallbacks = {
 
 function App() {
   const [menu, setMenu] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [bookingLoading, setBookingLoading] = useState(false)
-  const [bookingError, setBookingError] = useState('')
   const [account, setAccount] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authError, setAuthError] = useState('')
@@ -116,14 +102,6 @@ function App() {
     }
   }
 
-  const handleBookingLogin = () => {
-    try {
-      beginLineLogin('#booking')
-    } catch (error) {
-      setAuthError(error.message)
-    }
-  }
-
   const toggleMember = async () => {
     const willOpen = !memberOpen
     setMemberOpen(willOpen)
@@ -148,31 +126,6 @@ function App() {
       setMemberOpen(false)
     } catch (error) {
       setAuthError(error.message)
-    }
-  }
-  const submit = async event => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const data = new FormData(form)
-    const service = data.get('service')
-    const notes = data.get('notes')?.trim() || null
-
-    setBookingLoading(true)
-    setBookingError('')
-    try {
-      await createSchedule({
-        booker: account.display_name,
-        booker_phone: data.get('booker_phone').trim(),
-        service,
-        reservation_date: new Date(`${data.get('date')}T${data.get('time')}:00+08:00`).toISOString(),
-        notes,
-      })
-      form.reset()
-      setSent(true)
-    } catch (error) {
-      setBookingError(error.message)
-    } finally {
-      setBookingLoading(false)
     }
   }
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0)
@@ -227,7 +180,7 @@ function App() {
       <a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a>
       <div className={menu ? 'links open' : 'links'}>
         <a onClick={close} href="#about">關於我們</a><a onClick={close} href="#pricing">價目表</a>
-        <a onClick={close} href="#portfolio">作品集</a><a onClick={close} href="#store">線上商城</a><a onClick={close} href="#booking">線上預約</a>
+        <a onClick={close} href="#portfolio">作品集</a><a onClick={close} href="#store">線上商城</a><a onClick={close} href="booking.html">線上預約</a>
         {authLoading ? <span className="member-loading">會員載入中…</span> : account ? <div className="member-menu">
           <button type="button" className="member-trigger" aria-expanded={memberOpen} onClick={toggleMember}>
             {account.picture_url ? <img src={account.picture_url} alt="" referrerPolicy="no-referrer" /> : <span className="member-avatar">{account.display_name.slice(0, 1)}</span>}
@@ -251,7 +204,7 @@ function App() {
       <div className="hero-copy"><p className="kicker">PERSONAL HAIR DESIGN · TAIPEI</p>
         <h1>找到專屬於你的<br /><em>理想髮型</em></h1>
         <p className="lead">不追逐短暫潮流，從你的輪廓與日常出發，<br />設計一款真正適合你的髮型。</p>
-        <a className="primary" href="#booking">預約我的服務 <ArrowRight /></a>
+        <a className="primary" href="booking.html">預約我的服務 <ArrowRight /></a>
       </div>
       <div className="hero-note"><span>SCROLL TO DISCOVER</span><i /></div>
     </section>
@@ -317,25 +270,7 @@ function App() {
       </section>
     </section>
 
-    <section className="booking section" id="booking">
-      <div className="booking-intro"><div className="section-label light"><span>05</span> BOOKING</div><p className="eyebrow">MAKE AN APPOINTMENT</p><h2>準備好，遇見<br />全新的自己了嗎？</h2>
-        <p>選擇你方便的時間與想做的服務，我會在 24 小時內與你確認預約細節。</p>
-        <div className="contact-info"><p>新北市金山區中正路37號1樓・金山農會步行 3 分鐘</p><p>Tue — Sun · 08:00 — 21:00</p></div>
-      </div>
-      {authLoading ? <div className="booking-form booking-login-required"><span className="member-loading-dark">正在確認會員身分…</span></div> : !account ? <div className="booking-form booking-login-required"><span className="line-mark">LINE</span><h3>請先登入再預約</h3><p>使用 LINE 登入後即可建立會員預約並累積點數。</p><button type="button" className="line-login" onClick={handleBookingLogin}><span>LINE</span> 登入後預約</button>{authError && <small className="booking-auth-error">{authError}</small>}</div> : <form className="booking-form" onSubmit={submit}>
-        {sent ? <div className="success"><Check /><h3>收到你的預約了！</h3><p>我會在 24 小時內與你聯絡確認。</p><button type="button" onClick={()=>setSent(false)}>再填一次</button></div> : <>
-          <div className="field full"><label>想預約的服務</label><div className="select-wrap"><select name="service" required defaultValue=""><option value="" disabled>請選擇服務項目</option>{services.map(service => <option key={service.name}>{service.name}</option>)}</select><ChevronDown /></div></div>
-          <div className="field"><label><CalendarDays /> 日期</label><input name="date" type="date" required /></div>
-          <div className="field"><label><Clock3 /> 時間</label><input name="time" type="time" required /></div>
-          <div className="field full"><label>聯絡電話</label><input key={`phone-${account.id}`} name="booker_phone" type="tel" defaultValue={account.phone || ''} placeholder="09xx-xxx-xxx" required /></div>
-          <div className="field full"><label>想告訴我的事</label><textarea name="notes" placeholder="目前髮況、理想髮型，或任何想先討論的細節…" /></div>
-          {bookingError && <p className="booking-error" role="alert">{bookingError}</p>}
-          <button className="submit" type="submit" disabled={bookingLoading}>{bookingLoading ? '送出中…' : <>送出預約 <ArrowRight /></>}</button>
-        </>}
-      </form>}
-    </section>
-
-    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="#booking">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
+    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="booking.html">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
   </main>
 }
 
@@ -347,7 +282,8 @@ function Root() {
     const returnHash = window.sessionStorage.getItem('line_login_return_hash')
     if (returnHash) {
       window.sessionStorage.removeItem('line_login_return_hash')
-      window.location.hash = returnHash
+      if (returnHash.startsWith('#')) window.location.hash = returnHash
+      else window.location.href = returnHash
     }
     return () => window.removeEventListener('hashchange', updateHash)
   }, [])

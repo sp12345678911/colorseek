@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config'
-import { LINE_LOGIN_URL } from './config'
+import { LIFF_LOGIN_PATH, LINE_LOGIN_URL } from './config'
 
 const AUTH_PATH = '/api/v1/auth'
 
@@ -29,6 +29,14 @@ async function request(path, options = {}) {
 export const getCurrentAccount = () => request(`${AUTH_PATH}/me`)
 export const listMyPointTransactions = () => request(`${AUTH_PATH}/me/points?offset=0&limit=20`)
 export const logoutAccount = () => request(`${AUTH_PATH}/logout`, { method: 'POST' })
+export const loginWithLiff = async idToken => {
+  const account = await request(LIFF_LOGIN_PATH, {
+    method: 'POST',
+    body: JSON.stringify({ id_token: idToken }),
+  })
+  if (!account) throw new Error('LINE 登入驗證失敗，請重新登入')
+  return account
+}
 
 export const beginLineLogin = (returnHash = '#home') => {
   if (!LINE_LOGIN_URL) throw new Error('尚未設定 VITE_LINE_LOGIN_URL')
