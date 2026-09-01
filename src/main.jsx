@@ -17,6 +17,7 @@ import Admin from './Admin.jsx'
 import { beginLineLogin, getCurrentAccount, listMyPointTransactions, logoutAccount } from './authApi'
 import { createOrder, listProducts } from './commerceApi'
 import { services } from './services'
+import { LIFF_URL } from './config'
 
 const membershipLabels = { normal: '一般會員', silver: '銀卡會員', gold: '金卡會員', vip: 'VIP 會員' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '調整' }
@@ -180,7 +181,7 @@ function App() {
       <a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a>
       <div className={menu ? 'links open' : 'links'}>
         <a onClick={close} href="#about">關於我們</a><a onClick={close} href="#pricing">價目表</a>
-        <a onClick={close} href="#portfolio">作品集</a><a onClick={close} href="#store">線上商城</a><a onClick={close} href="booking.html">線上預約</a>
+        <a onClick={close} href="#portfolio">作品集</a><a onClick={close} href="#store">線上商城</a><a onClick={close} href={LIFF_URL}>線上預約</a>
         {authLoading ? <span className="member-loading">會員載入中…</span> : account ? <div className="member-menu">
           <button type="button" className="member-trigger" aria-expanded={memberOpen} onClick={toggleMember}>
             {account.picture_url ? <img src={account.picture_url} alt="" referrerPolicy="no-referrer" /> : <span className="member-avatar">{account.display_name.slice(0, 1)}</span>}
@@ -204,7 +205,7 @@ function App() {
       <div className="hero-copy"><p className="kicker">PERSONAL HAIR DESIGN · TAIPEI</p>
         <h1>找到專屬於你的<br /><em>理想髮型</em></h1>
         <p className="lead">不追逐短暫潮流，從你的輪廓與日常出發，<br />設計一款真正適合你的髮型。</p>
-        <a className="primary" href="booking.html">預約我的服務 <ArrowRight /></a>
+        <a className="primary" href={LIFF_URL}>預約我的服務 <ArrowRight /></a>
       </div>
       <div className="hero-note"><span>SCROLL TO DISCOVER</span><i /></div>
     </section>
@@ -270,7 +271,7 @@ function App() {
       </section>
     </section>
 
-    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href="booking.html">LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
+    <footer><div><a className="brand" href="#home">MUSE <span>HAIR STUDIO</span></a><p>讓髮型，成為你最自在的樣子。</p></div><div><p>FOLLOW</p><a href="https://instagram.com">Instagram</a><a href={LIFF_URL}>LINE 預約</a></div><div><p>CONTACT</p><a href="tel:0223456789">02 2345 6789</a><a href="mailto:hello@musehair.tw">hello@musehair.tw</a><a href="#admin">管理後台</a></div><small>© 2026 MUSE HAIR STUDIO</small></footer>
   </main>
 }
 
