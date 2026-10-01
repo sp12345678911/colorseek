@@ -128,7 +128,7 @@ export default function Admin() {
     setAuthError('')
     try {
       if (viewerAccount) await logoutAccount()
-      beginLineLogin('#admin')
+      await beginLineLogin('#admin')
     } catch (error) {
       setAuthError(error.message)
     }

@@ -57,7 +57,7 @@ function BookingPage() {
     setAuthLoading(true)
     setAuthError('')
     try {
-      if (!await connectLiff()) beginLineLogin('booking.html')
+      if (!await connectLiff()) await beginLineLogin('booking.html')
     } catch (error) {
       setAuthError(error.message)
       setAuthLoading(false)

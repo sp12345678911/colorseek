@@ -95,9 +95,9 @@ function App() {
     setProductOffset(current => Math.min(current, maxProductOffset))
   }, [maxProductOffset])
 
-  const handleLineLogin = () => {
+  const handleLineLogin = async () => {
     try {
-      beginLineLogin('#home')
+      await beginLineLogin('#home')
     } catch (error) {
       setAuthError(error.message)
     }
@@ -139,9 +139,9 @@ function App() {
     [product.id]: Math.min(product.stock_quantity, Math.max(0, (current[product.id] || 0) + amount)),
   }))
 
-  const handleStoreLogin = () => {
+  const handleStoreLogin = async () => {
     try {
-      beginLineLogin('#store')
+      await beginLineLogin('#store')
     } catch (error) {
       setStoreError(error.message)
     }

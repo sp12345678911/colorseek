@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config'
-import { LIFF_LOGIN_PATH, LINE_LOGIN_URL } from './config'
+import { LIFF_LOGIN_PATH } from './config'
 
 const AUTH_PATH = '/api/v1/auth'
 
@@ -38,8 +38,16 @@ export const loginWithLiff = async idToken => {
   return account
 }
 
-export const beginLineLogin = (returnHash = '#home') => {
-  if (!LINE_LOGIN_URL) throw new Error('尚未設定 VITE_LINE_LOGIN_URL')
+export const beginLineLogin = async (returnHash = '#home') => {
   window.sessionStorage.setItem('line_login_return_hash', returnHash)
-  window.location.href = LINE_LOGIN_URL
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/line/login/start`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!response.ok) {
+    throw new Error(`無法開始 LINE 登入 (${response.status})`)
+  }
+  const body = await response.json()
+  if (!body.authorization_url) throw new Error('LINE 登入網址不存在')
+  window.location.href = body.authorization_url
 }
