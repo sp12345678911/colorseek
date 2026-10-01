@@ -97,7 +97,7 @@ function BookingPage() {
     <section className="booking section">
       <div className="booking-intro"><div className="section-label light"><span>01</span> BOOKING</div><p className="eyebrow">MAKE AN APPOINTMENT</p><h1>簡單登入，<br />立即預約。</h1>
         <p>使用 LINE 登入後，選擇服務與方便的時間即可送出。我們會在 24 小時內與你確認預約細節。</p>
-        <div className="contact-info"><p>新北市金山區中正路37號1樓・金山農會步行 3 分鐘</p><p>Tue — Sun · 08:00 — 21:00</p></div>
+        <div className="contact-info"><p>新北市金山區中正路37號1樓・金山農會步行 3 分鐘</p><p>Tue — Sun · 09:00 — 20:00</p></div>
       </div>
       {authLoading ? <div className="booking-form booking-login-required"><span className="member-loading-dark">正在連接 LINE…</span></div> : !account ? <div className="booking-form booking-login-required"><span className="line-mark">LINE</span><h2>登入後開始預約</h2><p>不需要另外註冊帳號，只要使用 LINE 就能完成登入。</p><button type="button" className="line-login" onClick={login}><span>LINE</span> 登入並預約</button>{authError && <small className="booking-auth-error">{authError}</small>}</div> : <form className="booking-form" onSubmit={submit}>
         {sent ? <div className="success"><Check /><h2>收到你的預約了！</h2><p>我們會在 24 小時內與你聯絡確認。</p><button type="button" onClick={() => setSent(false)}>再預約一次</button></div> : <>
