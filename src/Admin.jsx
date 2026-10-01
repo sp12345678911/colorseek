@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, Package, Pencil, Plus, Scissors, ShoppingBag, Trash2, TrendingUp, Users, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DollarSign, LogOut, MessageCircle, Package, Pencil, Plus, Scissors, Send, ShoppingBag, Trash2, TrendingUp, Users, X } from 'lucide-react'
 import './admin.css'
 import './schedule.css'
 import './members.css'
+import './lineMessages.css'
 import { createRevenueRecord, deleteRevenueRecord, listRevenueRecords, updateRevenueRecord } from './revenueApi'
 import { listSchedules, updateScheduleStatus } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, logoutAccount } from './authApi'
 import { adjustAccountPoints, listAccountPoints, listAccounts, updateAccount } from './accountsApi'
 import { createProduct, listOrders, listProducts, updateOrderStatus, updateProduct } from './commerceApi'
+import { sendLineMessage } from './lineMessageApi'
 
 const money = value => `NT$ ${Number(value).toLocaleString()}`
 const toRevenue = record => ({ ...record, id: record.id ?? record.record_id, service: Number(record.hair_service_revenue ?? 0), product: Number(record.product_revenue ?? 0), customerCount: Number(record.customer_count ?? 0) })
@@ -150,7 +152,7 @@ export default function Admin() {
   }, [loggedIn])
 
   useEffect(() => {
-    if (!loggedIn || tab !== 'members') return
+    if (!loggedIn || !['members', 'messages'].includes(tab) || members.length) return
     let active = true
     setMembersLoading(true)
     listAccounts()
@@ -162,7 +164,7 @@ export default function Admin() {
       .catch(error => active && setMembersError(error.message))
       .finally(() => active && setMembersLoading(false))
     return () => { active = false }
-  }, [loggedIn, tab])
+  }, [loggedIn, tab, members.length])
 
   useEffect(() => {
     if (!loggedIn || !['products', 'orders'].includes(tab)) return
@@ -355,11 +357,11 @@ export default function Admin() {
   return <main className="admin-shell">
     <aside className="admin-sidebar">
       <div className="login-brand">MUSE <span>MANAGEMENT</span></div>
-      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}><Users /> 會員管理</button><button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}><Package /> 商品管理</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ShoppingBag /> 商城訂單 {orders.filter(order => order.status === 'pending').length > 0 && <b>{orders.filter(order => order.status === 'pending').length}</b>}</button></nav>
+      <nav><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><TrendingUp /> 業績管理</button><button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}><CalendarDays /> 預約紀錄 {bookings.filter(booking => booking.status === 'pending').length > 0 && <b>{bookings.filter(booking => booking.status === 'pending').length}</b>}</button><button className={tab === 'members' ? 'active' : ''} onClick={() => setTab('members')}><Users /> 會員管理</button><button className={tab === 'messages' ? 'active' : ''} onClick={() => setTab('messages')}><MessageCircle /> LINE 訊息</button><button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}><Package /> 商品管理</button><button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}><ShoppingBag /> 商城訂單 {orders.filter(order => order.status === 'pending').length > 0 && <b>{orders.filter(order => order.status === 'pending').length}</b>}</button></nav>
       <div className="sidebar-bottom"><a href="#home"><ArrowLeft /> 回到前台</a><button onClick={handleAdminLogout}><LogOut /> 登出</button></div>
     </aside>
     <section className="admin-content">
-      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : tab === 'members' ? '會員管理' : tab === 'products' ? '商品管理' : '商城訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
+      <header><div><p className="admin-kicker">MUSE HAIR STUDIO</p><h1>{tab === 'overview' ? '業績管理' : tab === 'bookings' ? '預約紀錄' : tab === 'members' ? '會員管理' : tab === 'messages' ? 'LINE 訊息' : tab === 'products' ? '商品管理' : '商城訂單'}</h1></div><div className="admin-user"><span>{adminAccount.display_name.slice(0, 1)}</span><p>{adminAccount.display_name}<small>管理員</small></p></div></header>
       {tab === 'overview' ? <>
         <div className="admin-stats revenue-stats"><article><span><DollarSign /></span><p>最新單日業績<strong>{money(today.service + today.product)}</strong></p></article><article><span><TrendingUp /></span><p>歷史總業績<strong>{money(totalRevenue)}</strong></p></article><article><span><Users /></span><p>區間平均客單價<strong>{money(averageTicket)}</strong></p></article><article><span><CalendarDays /></span><p>區間紀錄<strong>{filteredRevenues.length} 天</strong></p></article></div>
         <section className="admin-card performance-card">
@@ -374,9 +376,58 @@ export default function Admin() {
           </section>
           <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : revenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div></section>
         </div>
-      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : tab === 'products' ? <ProductsPanel products={products} loading={commerceLoading} error={commerceError} onSave={saveProduct} /> : <OrdersPanel orders={orders} loading={commerceLoading} error={commerceError} updatingId={updatingOrderId} onStatusChange={changeOrderStatus} />}
+      </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : tab === 'messages' ? <LineMessagesPanel members={members} loading={membersLoading} error={membersError} /> : tab === 'products' ? <ProductsPanel products={products} loading={commerceLoading} error={commerceError} onSave={saveProduct} /> : <OrdersPanel orders={orders} loading={commerceLoading} error={commerceError} updatingId={updatingOrderId} onStatusChange={changeOrderStatus} />}
     </section>
   </main>
+}
+
+function LineMessagesPanel({ members, loading, error }) {
+  const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState(null)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
+  const [sent, setSent] = useState(false)
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredMembers = members.filter(member => !normalizedQuery || [member.display_name, member.phone, member.line_user_id].some(value => value?.toLowerCase().includes(normalizedQuery)))
+  const selected = members.find(member => member.id === selectedId)
+
+  const submit = async event => {
+    event.preventDefault()
+    if (!selected) return setSendError('請先選擇收件人')
+    setSending(true); setSendError(''); setSent(false)
+    try {
+      await sendLineMessage(selected.id, text.trim())
+      setText(''); setSent(true)
+    } catch (requestError) {
+      setSendError(requestError.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return <div className="line-message-layout">
+    <section className="admin-card">
+      <div className="card-title"><div><p>RECIPIENT</p><h2>選擇 LINE 帳號</h2></div><Users /></div>
+      <label className="line-message-search">搜尋會員<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="姓名、電話或 LINE ID" /></label>
+      {loading ? <p className="line-message-empty">載入會員中…</p> : !filteredMembers.length ? <p className="line-message-empty">找不到符合條件的會員</p> : <div className="line-recipient-list">{filteredMembers.map(member => <button type="button" className={selectedId === member.id ? 'selected' : ''} key={member.id} onClick={() => { setSelectedId(member.id); setSent(false); setSendError('') }}>
+        {member.picture_url ? <img src={member.picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{member.display_name.slice(0, 1)}</i>}
+        <span><strong>{member.display_name}</strong><small>{member.line_user_id} · {accountStatusLabels[member.status]}</small></span>
+      </button>)}</div>}
+    </section>
+    <section className="admin-card">
+      <div className="card-title"><div><p>DIRECT MESSAGE</p><h2>傳送文字訊息</h2></div><Send /></div>
+      <form className="line-message-form" onSubmit={submit}>
+        {selected ? <div className="line-selected-recipient">{selected.picture_url ? <img src={selected.picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{selected.display_name.slice(0, 1)}</i>}<span>傳送給 <strong>{selected.display_name}</strong><small>{selected.line_user_id}</small></span></div> : <p className="line-message-empty">請從左側選擇一位收件人</p>}
+        <label>訊息內容<textarea value={text} onChange={event => { setText(event.target.value); setSent(false) }} maxLength="5000" placeholder="輸入要傳送給會員的 LINE 訊息…" required /></label>
+        <div className="line-message-meta"><small>{text.length} / 5000</small><small>訊息將由 MUSE 官方帳號送出</small></div>
+        {(error || sendError) && <p className="booking-api-error" role="alert">{sendError || error}</p>}
+        {sent && <p className="line-message-success" role="status">訊息已交由 LINE 傳送。</p>}
+        <p className="line-message-note">若會員未加入官方帳號、已封鎖帳號或不符合 LINE 的推播條件，即使 API 接受請求，對方仍可能收不到訊息。</p>
+        <button className="admin-primary" type="submit" disabled={sending || !selected || !text.trim()}>{sending ? '傳送中…' : <><Send /> 傳送 LINE 訊息</>}</button>
+      </form>
+    </section>
+  </div>
 }
 
 function ProductsPanel({ products, loading, error, onSave }) {
