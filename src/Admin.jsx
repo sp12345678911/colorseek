@@ -29,6 +29,14 @@ const roleLabels = { customer: '顧客', staff: '員工', admin: '管理員' }
 const accountStatusLabels = { active: '啟用', disabled: '停用' }
 const membershipLabels = { normal: '一般', silver: '銀卡', gold: '金卡', vip: 'VIP' }
 const pointTypeLabels = { earn: '獲得', redeem: '兌換', refund: '退回', expire: '到期', adjustment: '人工調整' }
+const REVENUE_PAGE_SIZE = 10
+
+const paginationItems = (current, total) => {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  if (current <= 4) return [1, 2, 3, 4, 5, 'end-gap', total]
+  if (current >= total - 3) return [1, 'start-gap', total - 4, total - 3, total - 2, total - 1, total]
+  return [1, 'start-gap', current - 1, current, current + 1, 'end-gap', total]
+}
 
 const dateTimeParts = reservationDate => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -77,6 +85,7 @@ export default function Admin() {
   const [revenueLoading, setRevenueLoading] = useState(false)
   const [revenueError, setRevenueError] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [revenuePage, setRevenuePage] = useState(1)
   const [bookings, setBookings] = useState([])
   const [bookingLoading, setBookingLoading] = useState(false)
   const [bookingError, setBookingError] = useState('')
@@ -150,6 +159,11 @@ export default function Admin() {
     }).catch(err => active && setRevenueError(err.message)).finally(() => active && setRevenueLoading(false))
     return () => { active = false }
   }, [loggedIn])
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(revenues.length / REVENUE_PAGE_SIZE))
+    setRevenuePage(current => Math.min(current, totalPages))
+  }, [revenues.length])
 
   useEffect(() => {
     if (!loggedIn || !['members', 'messages'].includes(tab) || members.length) return
@@ -243,6 +257,7 @@ export default function Admin() {
     try {
       const created = toRevenue(await createRevenueRecord(formPayload(form)))
       setRevenues(current => [created, ...current].sort((a, b) => b.date.localeCompare(a.date)))
+      setRevenuePage(1)
       form.reset(); setRevenueError(''); setSaved(true)
       setTimeout(() => setSaved(false), 2200)
     } catch (err) { setRevenueError(err.message) } finally { setRevenueLoading(false) }
@@ -345,6 +360,8 @@ export default function Admin() {
   const rangeRevenue = filteredRevenues.reduce((sum, item) => sum + item.service + item.product, 0)
   const rangeCustomers = filteredRevenues.reduce((sum, item) => sum + item.customerCount, 0)
   const averageTicket = rangeCustomers ? Math.round(rangeRevenue / rangeCustomers) : 0
+  const revenueTotalPages = Math.max(1, Math.ceil(revenues.length / REVENUE_PAGE_SIZE))
+  const visibleRevenues = revenues.slice((revenuePage - 1) * REVENUE_PAGE_SIZE, revenuePage * REVENUE_PAGE_SIZE)
 
   const setPresetRange = days => {
     const latest = revenues[0]?.date || new Date().toLocaleDateString('en-CA')
@@ -374,7 +391,7 @@ export default function Admin() {
           <section className="admin-card revenue-form"><div className="card-title"><div><p>DAILY REVENUE</p><h2>輸入當天業績</h2></div><Plus /></div>
             <form onSubmit={addRevenue}><label>日期<input name="date" type="date" defaultValue={new Date().toLocaleDateString('en-CA')} required /></label><div className="input-row"><label>服務業績<input name="service" type="number" min="0" placeholder="0" required /></label><label>商品業績<input name="product" type="number" min="0" placeholder="0" required /></label></div><label>來客數<input name="customerCount" type="number" min="0" placeholder="0" required /></label><label>備註<textarea name="note" placeholder="輸入今日營運備註（選填）" /></label>{revenueError && <p className="login-error">{revenueError}</p>}<button className="admin-primary" type="submit" disabled={revenueLoading}>{saved ? <><Check /> 已加入紀錄</> : revenueLoading ? '處理中…' : '儲存今日業績'}</button></form>
           </section>
-          <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : revenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div></section>
+          <section className="admin-card revenue-history"><div className="card-title"><div><p>REVENUE HISTORY</p><h2>歷史業績</h2></div><small className="revenue-count">共 {revenues.length} 筆</small></div><div className="admin-table"><div className="table-head"><span>日期</span><span>服務</span><span>商品</span><span>總計 / 操作</span></div>{revenueLoading && !revenues.length ? <p className="revenue-message">載入中…</p> : !revenues.length ? <p className="revenue-message">目前沒有營業額紀錄</p> : visibleRevenues.map(item => editingId === item.id ? <form className="revenue-edit" key={item.id} onSubmit={event => saveRevenue(event, item.id)}><input name="date" type="date" defaultValue={item.date} required /><input name="service" type="number" min="0" defaultValue={item.service} required /><input name="product" type="number" min="0" defaultValue={item.product} required /><input name="customerCount" type="number" min="0" defaultValue={item.customerCount} aria-label="來客數" required /><textarea name="note" defaultValue={item.note || ''} placeholder="備註" /><div className="row-actions"><button type="submit" aria-label="儲存" disabled={revenueLoading}><Check /></button><button type="button" aria-label="取消" onClick={() => setEditingId(null)}><X /></button></div></form> : <div className="table-row" key={item.id}><span>{item.date}<small>{item.customerCount} 位顧客</small></span><span>{money(item.service)}</span><span>{money(item.product)}</span><strong>{money(item.service + item.product)}</strong>{item.note && <small>{item.note}</small>}<div className="row-actions"><button type="button" aria-label={`編輯 ${item.date}`} onClick={() => setEditingId(item.id)}><Pencil /></button><button type="button" aria-label={`刪除 ${item.date}`} onClick={() => removeRevenue(item)} disabled={revenueLoading}><Trash2 /></button></div></div>)}</div>{revenues.length > REVENUE_PAGE_SIZE && <nav className="revenue-pagination" aria-label="歷史業績分頁"><button type="button" onClick={() => setRevenuePage(page => Math.max(1, page - 1))} disabled={revenuePage === 1} aria-label="上一頁"><ChevronLeft /></button>{paginationItems(revenuePage, revenueTotalPages).map(item => typeof item === 'number' ? <button type="button" key={item} className={item === revenuePage ? 'active' : ''} aria-current={item === revenuePage ? 'page' : undefined} onClick={() => setRevenuePage(item)}>{item}</button> : <span key={item}>…</span>)}<button type="button" onClick={() => setRevenuePage(page => Math.min(revenueTotalPages, page + 1))} disabled={revenuePage === revenueTotalPages} aria-label="下一頁"><ChevronRight /></button><small>第 {revenuePage} / {revenueTotalPages} 頁</small></nav>}</section>
         </div>
       </> : tab === 'bookings' ? <BookingsPanel bookings={bookings} bookingDate={bookingDate} setBookingDate={setBookingDate} loading={bookingLoading} error={bookingError} updatingId={updatingBookingId} onStatusChange={changeBookingStatus} /> : tab === 'members' ? <MembersPanel members={members} loading={membersLoading} error={membersError} currentAdminId={adminAccount.id} onSave={saveMember} onAdjustPoints={savePointAdjustment} /> : tab === 'messages' ? <LineMessagesPanel members={members} loading={membersLoading} error={membersError} /> : tab === 'products' ? <ProductsPanel products={products} loading={commerceLoading} error={commerceError} onSave={saveProduct} /> : <OrdersPanel orders={orders} loading={commerceLoading} error={commerceError} updatingId={updatingOrderId} onStatusChange={changeOrderStatus} />}
     </section>
