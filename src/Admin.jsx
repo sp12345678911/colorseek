@@ -9,7 +9,7 @@ import { listSchedules, updateScheduleStatus } from './scheduleApi'
 import { beginLineLogin, getCurrentAccount, logoutAccount } from './authApi'
 import { adjustAccountPoints, listAccountPoints, listAccounts, updateAccount } from './accountsApi'
 import { createProduct, listOrders, listProducts, updateOrderStatus, updateProduct } from './commerceApi'
-import { sendLineMessage } from './lineMessageApi'
+import { sendLineMessages } from './lineMessageApi'
 
 const money = value => `NT$ ${Number(value).toLocaleString()}`
 const toRevenue = record => ({ ...record, id: record.id ?? record.record_id, service: Number(record.hair_service_revenue ?? 0), product: Number(record.product_revenue ?? 0), customerCount: Number(record.customer_count ?? 0) })
@@ -383,22 +383,43 @@ export default function Admin() {
 
 function LineMessagesPanel({ members, loading, error }) {
   const [query, setQuery] = useState('')
-  const [selectedId, setSelectedId] = useState(null)
+  const [mode, setMode] = useState('single')
+  const [selectedIds, setSelectedIds] = useState([])
   const [text, setText] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [sent, setSent] = useState(false)
   const normalizedQuery = query.trim().toLowerCase()
   const filteredMembers = members.filter(member => !normalizedQuery || [member.display_name, member.phone, member.line_user_id].some(value => value?.toLowerCase().includes(normalizedQuery)))
-  const selected = members.find(member => member.id === selectedId)
+  const selectedMembers = members.filter(member => selectedIds.includes(member.id))
+
+  const selectMember = memberId => {
+    setSelectedIds(current => mode === 'single'
+      ? [memberId]
+      : current.includes(memberId) ? current.filter(id => id !== memberId) : [...current, memberId])
+    setSent(false); setSendError('')
+  }
+
+  const changeMode = nextMode => {
+    setMode(nextMode)
+    setSelectedIds(current => nextMode === 'single' ? current.slice(0, 1) : current)
+    setSent(false); setSendError('')
+  }
+
+  const allFilteredSelected = filteredMembers.length > 0 && filteredMembers.every(member => selectedIds.includes(member.id))
+  const toggleFiltered = () => setSelectedIds(current => allFilteredSelected
+    ? current.filter(id => !filteredMembers.some(member => member.id === id))
+    : [...new Set([...current, ...filteredMembers.map(member => member.id)])].slice(0, 500))
 
   const submit = async event => {
     event.preventDefault()
-    if (!selected) return setSendError('請先選擇收件人')
+    if (!selectedIds.length) return setSendError('請先選擇收件人')
+    if (!text.trim() && !imageUrl.trim()) return setSendError('請輸入文字或圖片網址')
     setSending(true); setSendError(''); setSent(false)
     try {
-      await sendLineMessage(selected.id, text.trim())
-      setText(''); setSent(true)
+      await sendLineMessages(selectedIds, { text: text.trim(), imageUrl: imageUrl.trim() })
+      setText(''); setImageUrl(''); setSent(true)
     } catch (requestError) {
       setSendError(requestError.message)
     } finally {
@@ -409,8 +430,11 @@ function LineMessagesPanel({ members, loading, error }) {
   return <div className="line-message-layout">
     <section className="admin-card">
       <div className="card-title"><div><p>RECIPIENT</p><h2>選擇 LINE 帳號</h2></div><Users /></div>
+      <div className="line-send-modes"><button type="button" className={mode === 'single' ? 'active' : ''} onClick={() => changeMode('single')}>單人傳送</button><button type="button" className={mode === 'bulk' ? 'active' : ''} onClick={() => changeMode('bulk')}>群發訊息</button></div>
       <label className="line-message-search">搜尋會員<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="姓名、電話或 LINE ID" /></label>
-      {loading ? <p className="line-message-empty">載入會員中…</p> : !filteredMembers.length ? <p className="line-message-empty">找不到符合條件的會員</p> : <div className="line-recipient-list">{filteredMembers.map(member => <button type="button" className={selectedId === member.id ? 'selected' : ''} key={member.id} onClick={() => { setSelectedId(member.id); setSent(false); setSendError('') }}>
+      {mode === 'bulk' && <div className="line-bulk-actions"><button type="button" onClick={toggleFiltered}>{allFilteredSelected ? '取消目前搜尋結果' : '全選目前搜尋結果'}</button><span>已選 {selectedIds.length} / 500 人</span></div>}
+      {loading ? <p className="line-message-empty">載入會員中…</p> : !filteredMembers.length ? <p className="line-message-empty">找不到符合條件的會員</p> : <div className="line-recipient-list">{filteredMembers.map(member => <button type="button" className={selectedIds.includes(member.id) ? 'selected' : ''} key={member.id} onClick={() => selectMember(member.id)}>
+        {mode === 'bulk' && <span className="line-recipient-check">{selectedIds.includes(member.id) ? <Check /> : ''}</span>}
         {member.picture_url ? <img src={member.picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{member.display_name.slice(0, 1)}</i>}
         <span><strong>{member.display_name}</strong><small>{member.line_user_id} · {accountStatusLabels[member.status]}</small></span>
       </button>)}</div>}
@@ -418,13 +442,15 @@ function LineMessagesPanel({ members, loading, error }) {
     <section className="admin-card">
       <div className="card-title"><div><p>DIRECT MESSAGE</p><h2>傳送文字訊息</h2></div><Send /></div>
       <form className="line-message-form" onSubmit={submit}>
-        {selected ? <div className="line-selected-recipient">{selected.picture_url ? <img src={selected.picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{selected.display_name.slice(0, 1)}</i>}<span>傳送給 <strong>{selected.display_name}</strong><small>{selected.line_user_id}</small></span></div> : <p className="line-message-empty">請從左側選擇一位收件人</p>}
-        <label>訊息內容<textarea value={text} onChange={event => { setText(event.target.value); setSent(false) }} maxLength="5000" placeholder="輸入要傳送給會員的 LINE 訊息…" required /></label>
+        {selectedMembers.length === 1 ? <div className="line-selected-recipient">{selectedMembers[0].picture_url ? <img src={selectedMembers[0].picture_url} alt="" referrerPolicy="no-referrer" /> : <i>{selectedMembers[0].display_name.slice(0, 1)}</i>}<span>傳送給 <strong>{selectedMembers[0].display_name}</strong><small>{selectedMembers[0].line_user_id}</small></span></div> : selectedMembers.length > 1 ? <div className="line-selected-recipient line-selected-bulk"><MessageCircle /><span>群發給 <strong>{selectedMembers.length} 位會員</strong><small>{selectedMembers.slice(0, 3).map(member => member.display_name).join('、')}{selectedMembers.length > 3 ? ` 等 ${selectedMembers.length} 人` : ''}</small></span></div> : <p className="line-message-empty">請從左側選擇收件人</p>}
+        <label>訊息內容（選填）<textarea value={text} onChange={event => { setText(event.target.value); setSent(false) }} maxLength="5000" placeholder="輸入要傳送給會員的 LINE 訊息…" /></label>
+        <label>圖片 HTTPS 網址（選填）<input type="url" value={imageUrl} onChange={event => { setImageUrl(event.target.value); setSent(false) }} maxLength="2000" placeholder="https://example.com/photo.jpg" /></label>
+        {imageUrl && <div className="line-image-preview"><span>圖片預覽</span><img src={imageUrl} alt="即將傳送的圖片預覽" /></div>}
         <div className="line-message-meta"><small>{text.length} / 5000</small><small>訊息將由 MUSE 官方帳號送出</small></div>
         {(error || sendError) && <p className="booking-api-error" role="alert">{sendError || error}</p>}
-        {sent && <p className="line-message-success" role="status">訊息已交由 LINE 傳送。</p>}
+        {sent && <p className="line-message-success" role="status">訊息已交由 LINE 傳送給 {selectedIds.length} 位收件人。</p>}
         <p className="line-message-note">若會員未加入官方帳號、已封鎖帳號或不符合 LINE 的推播條件，即使 API 接受請求，對方仍可能收不到訊息。</p>
-        <button className="admin-primary" type="submit" disabled={sending || !selected || !text.trim()}>{sending ? '傳送中…' : <><Send /> 傳送 LINE 訊息</>}</button>
+        <button className="admin-primary" type="submit" disabled={sending || !selectedIds.length || (!text.trim() && !imageUrl.trim())}>{sending ? '傳送中…' : <><Send /> {selectedIds.length > 1 ? `群發給 ${selectedIds.length} 人` : '傳送 LINE 訊息'}</>}</button>
       </form>
     </section>
   </div>

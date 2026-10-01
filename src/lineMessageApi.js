@@ -1,11 +1,15 @@
 import { API_BASE_URL } from './config'
 
-export async function sendLineMessage(accountId, text) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/message/line/push`, {
+export async function sendLineMessages(accountIds, { text = null, imageUrl = null }) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/message/line/send`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ account_id: accountId, text }),
+    body: JSON.stringify({
+      account_ids: accountIds,
+      text: text || null,
+      image_url: imageUrl || null,
+    }),
   })
 
   if (!response.ok) {

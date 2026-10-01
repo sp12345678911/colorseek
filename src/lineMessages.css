@@ -1,2 +1,41 @@
-.line-message-layout{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(360px,1.28fr);gap:22px}.line-recipient-list{border:1px solid #e5d9cd;max-height:520px;overflow-y:auto}.line-recipient-list button{align-items:center;background:#fffaf3;border:0;border-bottom:1px solid #eee4da;color:#51453d;cursor:pointer;display:flex;gap:11px;padding:13px;text-align:left;width:100%}.line-recipient-list button:last-child{border-bottom:0}.line-recipient-list button.selected{background:#332a24;color:#fff}.line-recipient-list img,.line-recipient-list i,.line-selected-recipient img,.line-selected-recipient i{border-radius:50%;height:38px;object-fit:cover;width:38px}.line-recipient-list i,.line-selected-recipient i{align-items:center;background:#c96e3e;color:#fff;display:flex;font-style:normal;justify-content:center}.line-recipient-list span{font-size:11px;min-width:0}.line-recipient-list small{color:#9b8c81;display:block;font-size:8px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.line-recipient-list button.selected small{color:#cabeb4}.line-message-search{display:flex;flex-direction:column;gap:6px;color:#77695e;font-size:9px;margin-bottom:13px}.line-message-search input,.line-message-form textarea{background:#fff;border:1px solid #d8cbbd;color:#443831;padding:11px;width:100%}.line-message-form{display:flex;flex-direction:column;gap:16px}.line-selected-recipient{align-items:center;background:#f4ebdf;display:flex;gap:12px;padding:16px}.line-selected-recipient span{font-size:11px}.line-selected-recipient small{color:#8e7f74;display:block;font-size:8px;margin-top:4px}.line-message-form label{color:#77695e;display:flex;flex-direction:column;font-size:9px;gap:7px}.line-message-form textarea{min-height:190px;resize:vertical}.line-message-meta{align-items:center;display:flex;justify-content:space-between}.line-message-meta small{color:#9a8b80;font-size:9px}.line-message-success{background:#dce9df;color:#47705b;font-size:10px;margin:0;padding:12px}.line-message-note{color:#8e7f74;font-size:9px;line-height:1.7;margin:0}.line-message-empty{color:#9a8b80;font-size:10px;padding:30px;text-align:center}
-@media(max-width:850px){.line-message-layout{grid-template-columns:1fr}.line-recipient-list{max-height:300px}}
+.line-message-layout { display: grid; grid-template-columns: minmax(260px, .72fr) minmax(360px, 1.28fr); gap: 22px; }
+.line-recipient-list { border: 1px solid #e5d9cd; max-height: 520px; overflow-y: auto; }
+.line-recipient-list button { align-items: center; background: #fffaf3; border: 0; border-bottom: 1px solid #eee4da; color: #51453d; cursor: pointer; display: flex; gap: 11px; padding: 13px; text-align: left; width: 100%; }
+.line-recipient-list button:last-child { border-bottom: 0; }
+.line-recipient-list button.selected { background: #332a24; color: #fff; }
+.line-recipient-list img, .line-recipient-list i, .line-selected-recipient img, .line-selected-recipient i { border-radius: 50%; height: 38px; object-fit: cover; width: 38px; }
+.line-recipient-list i, .line-selected-recipient i { align-items: center; background: #c96e3e; color: #fff; display: flex; font-style: normal; justify-content: center; }
+.line-recipient-list span { font-size: 11px; min-width: 0; }
+.line-recipient-list small { color: #9b8c81; display: block; font-size: 8px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line-recipient-list button.selected small { color: #cabeb4; }
+.line-message-search { color: #77695e; display: flex; flex-direction: column; font-size: 9px; gap: 6px; margin-bottom: 13px; }
+.line-message-search input, .line-message-form textarea, .line-message-form input { background: #fff; border: 1px solid #d8cbbd; color: #443831; padding: 11px; width: 100%; }
+.line-message-form { display: flex; flex-direction: column; gap: 16px; }
+.line-selected-recipient { align-items: center; background: #f4ebdf; display: flex; gap: 12px; padding: 16px; }
+.line-selected-recipient span { font-size: 11px; }
+.line-selected-recipient small { color: #8e7f74; display: block; font-size: 8px; margin-top: 4px; }
+.line-selected-bulk > svg { background: #c96e3e; border-radius: 50%; color: #fff; height: 38px; padding: 9px; width: 38px; }
+.line-message-form label { color: #77695e; display: flex; flex-direction: column; font-size: 9px; gap: 7px; }
+.line-message-form textarea { min-height: 150px; resize: vertical; }
+.line-message-meta { align-items: center; display: flex; justify-content: space-between; }
+.line-message-meta small { color: #9a8b80; font-size: 9px; }
+.line-message-success { background: #dce9df; color: #47705b; font-size: 10px; margin: 0; padding: 12px; }
+.line-message-note { color: #8e7f74; font-size: 9px; line-height: 1.7; margin: 0; }
+.line-message-empty { color: #9a8b80; font-size: 10px; padding: 30px; text-align: center; }
+.line-send-modes { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+.line-send-modes button { background: #fff; border: 1px solid #d8cbbd; color: #77695e; cursor: pointer; padding: 10px; }
+.line-send-modes button + button { border-left: 0; }
+.line-send-modes button.active { background: #332a24; color: #fff; }
+.line-bulk-actions { align-items: center; display: flex; justify-content: space-between; margin: 0 0 10px; }
+.line-bulk-actions button { background: transparent; border: 0; color: #b55e32; cursor: pointer; font-size: 9px; padding: 0; }
+.line-bulk-actions span { color: #8e7f74; font-size: 9px; }
+.line-recipient-check { border: 1px solid #c8b9ac; display: grid !important; flex: 0 0 20px; height: 20px; place-items: center; width: 20px; }
+.line-recipient-check svg { height: 13px; width: 13px; }
+.line-recipient-list button.selected .line-recipient-check { background: #c96e3e; border-color: #c96e3e; }
+.line-image-preview { background: #f4ebdf; padding: 12px; }
+.line-image-preview span { color: #77695e; display: block; font-size: 9px; margin-bottom: 8px; }
+.line-image-preview img { display: block; max-height: 260px; max-width: 100%; object-fit: contain; }
+@media (max-width: 850px) {
+  .line-message-layout { grid-template-columns: 1fr; }
+  .line-recipient-list { max-height: 300px; }
+}
