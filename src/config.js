@@ -1,4 +1,7 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const usesVercelApiProxy = typeof window !== 'undefined'
+  && window.location.hostname.endsWith('.vercel.app')
+export const API_BASE_URL = usesVercelApiProxy ? '' : configuredApiBaseUrl
 const configuredLineLoginUrl = (import.meta.env.VITE_LINE_LOGIN_URL || '').trim()
 export const LINE_LOGIN_URL = API_BASE_URL
   ? `${API_BASE_URL}/api/v1/auth/line/login`
